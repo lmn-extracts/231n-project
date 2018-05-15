@@ -35,6 +35,7 @@ def get_file_names(dirname):
     return fileList, labelList 
 
 def chr2idx(c):
+    # A --> 0, Z --> 25, a --> 26, z --> 51 ==> Num_classes = 52
     ord_val = ord(c)
     ord_val = (ord_val - 65) if ord_val <=91 else (ord_val - 97 + 26)
     return ord_val
@@ -78,5 +79,14 @@ def nd_array_to_labels(nd_arr):
 
     return labels
 
-
+def get_accuracy(preds, labels):
+    acc = []
+    for pred, label in zip(preds, labels):
+        if len(label) == 0:
+            acc.append(1.0)
+            continue
+        total = min(len(label), len(pred))
+        correct = len([i for i in range(total) if pred[i] == label[i]])
+        acc.append(correct/len(label))
+    return np.mean(acc)
 
