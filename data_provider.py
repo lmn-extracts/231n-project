@@ -6,11 +6,12 @@ import sys
 import random
 
 class TFRecordWriter(object):
-    def __init__(self, data_dir, split=False):
+    def __init__(self, data_dir, split=False, max_imgs=None):
         '''
         Arguments:
             - data_dir: Location where the images and the ground truth label files reside
             - split: Boolean flag. Indicates whether or not to split the data into train/val/test
+            - max_imgs: Number of max images to write to tfrecord files
         '''
         fileList = []
         labelList = []
@@ -26,9 +27,6 @@ class TFRecordWriter(object):
                 if total % 100000 == 0:
                     print('Annotations checked: %d'% (total))
                     sys.stdout.flush()
-                    #msg = "\r- Annotations checked: {}".format(total)
-                    #sys.stdout.write(msg)
-                    #sys.stdout.flush()
 
         total = 0
         for subdirs, dirs, files in os.walk(data_dir):
@@ -42,14 +40,15 @@ class TFRecordWriter(object):
                 if total % 100000 == 0:
                     print('Files Appended: %d'% (total))
                     sys.stdout.flush()
-                    #msg = "\r- Files Appended: {}".format(total)
-                    #sys.stdout.write(msg)
-                    #sys.stdout.flush()
 
         self.split = split
 
-        self.train_files = fileList
-        self.train_labels = labelList 
+        N = len(fileList)
+        if max_imgs is not None and max_imgs < N:
+            N = max_imgs
+            print('Capping number of files at defined max_imgs: ', max_imgs)
+        self.train_files = fileList[:N]
+        self.train_labels = labelList[:N]
         self.test_files = None
         self.test_labels = None
         self.val_files = None
@@ -60,8 +59,6 @@ class TFRecordWriter(object):
             random.seed(238)
             shuffle(zipped)
             fileList, labelList = zip(*zipped)
-
-            N = len(fileList)
 
             self.train_files = fileList[0 : int(0.6*N)]
             self.train_labels = labelList[0: int(0.6*N)]
@@ -79,10 +76,11 @@ class TFRecordWriter(object):
                 sys.stdout.flush()
 
             try:
-              image = load_image(self.train_files[i])
+                print('Try image: ', self.train_files[i])
+                image = load_image(self.train_files[i])
             except ValueError:
-               print('Ignoring image: ', self.train_files[i])
-               continue
+                print('Ignoring image: ', self.train_files[i])
+                continue
             label = self.train_labels[i]    
             feature = {
                 'label': _int64_feature(label),
