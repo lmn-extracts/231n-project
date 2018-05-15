@@ -3,6 +3,7 @@ from data_utils import _int64_feature, _byte_feature
 import tensorflow as tf
 import os
 import sys
+import random
 
 class TFRecordWriter(object):
     def __init__(self, data_dir, split=False):
@@ -56,6 +57,7 @@ class TFRecordWriter(object):
 
         if split:
             zipped = list(zip(fileList, labelList))
+            random.seed(238)
             shuffle(zipped)
             fileList, labelList = zip(*zipped)
 
@@ -76,7 +78,11 @@ class TFRecordWriter(object):
                 print('Train Data: %d/%d records saved' % (i,N))
                 sys.stdout.flush()
 
-            image = load_image(self.train_files[i])
+            try:
+              image = load_image(self.train_files[i])
+            except ValueError:
+               print('Ignoring image: ', self.train_files[i])
+               continue
             label = self.train_labels[i]    
             feature = {
                 'label': _int64_feature(label),

@@ -50,10 +50,15 @@ def load_image(image, input_width=100):
         Resize an image to the "good" input size
     """
     im_arr = cv2.imread(image)
-    r, c,_ = np.shape(im_arr)
-    final_arr = cv2.resize(im_arr, (input_width,32), interpolation=cv2.INTER_CUBIC)
-    final_arr = final_arr.astype(np.float32)
-    return final_arr
+    #print("Processing image", image)
+    try:
+        r, c,_ = np.shape(im_arr)
+        final_arr = cv2.resize(im_arr, (input_width,32), interpolation=cv2.INTER_CUBIC)
+        final_arr = final_arr.astype(np.float32)
+        return final_arr
+    except ValueError:
+        print("Error while processing image ", image)
+        raise
 
 def _parse_function(filename, label, max_char_count=10):
     image = load_image(filename)
