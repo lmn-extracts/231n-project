@@ -88,11 +88,17 @@ class PreProcessData(object):
 
         for subdirs, dirs, files in os.walk(dirpath):
             for file in files:
-                label = file.split('_')[1]
+                filename = os.path.basename(file)
+                ext = filename.split('.')[-1]
+                if ext == 'txt':
+                   continue
+                label = filename.split('_')[1]
                 if label.isalpha():
                     copyfile(os.path.join(subdirs, file), os.path.join(targetdir, str(count) + '.jpg'))
                     fileHandle.write(str(count) + " " + label + "\n")
                     count += 1
+                if (count % 1000 == 0):
+                   print('Processed %d files' % count)
         fileHandle.close()
         return
 
