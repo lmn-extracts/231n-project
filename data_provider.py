@@ -64,24 +64,24 @@ class TFRecordWriter(object):
             self.train_labels = labelList[0: int(0.6*N)]
             self.val_files = fileList[int(0.6*N) : int(0.8*N)]
             self.val_labels = labelList[int(0.6*N) : int(0.8*N)]
-            self.test_files = fileList[int(0.8*N):]
-            self.test_labels = labelList[int(0.8*N):]
+            self.test_files = fileList[int(0.8*N):N]
+            self.test_labels = labelList[int(0.8*N):N]
 
-    def _write_feature(self,train_file, val_file=None, test_file=None):
-        writer = tf.python_io.TFRecordWriter(train_file)
-        N = len(self.train_files)
+    def _write_fn(self, out_file, image_list, label_list, mode):
+        writer = tf.python_io.TFRecordWriter(out_file)
+        N = len(image_list)
         for i in range(N):
             if (i % 1000) == 0:
-                print('Train Data: %d/%d records saved' % (i,N))
+                print('%s Data: %d/%d records saved' % (mode, i,N))
                 sys.stdout.flush()
 
             try:
-                print('Try image: ', self.train_files[i])
-                image = load_image(self.train_files[i])
-            except ValueError:
-                print('Ignoring image: ', self.train_files[i])
+                #print('Try image: ', image_list[i])
+                image = load_image(image_list[i])
+            except (ValueError, AttributeError):
+                print('Ignoring image: ', image_list[i])
                 continue
-            label = self.train_labels[i]    
+            label = label_list[i]
             feature = {
                 'label': _int64_feature(label),
                 'image': _byte_feature(tf.compat.as_bytes(image.tostring()))
@@ -91,49 +91,16 @@ class TFRecordWriter(object):
 
             writer.write(example.SerializeToString())
         writer.close()
+
+    def _write_feature(self, train_file, val_file=None, test_file=None):
+        self._write_fn(train_file, self.train_files, self.train_labels, mode="Train")
 
         if not self.split:
             return
 
-        writer = tf.python_io.TFRecordWriter(val_file)
-        N = len(self.val_files)
-        for i in range(N):
-            if (i % 1000) == 0:
-                print('Val Data: %d/%d records saved' % (i,N))
-                sys.stdout.flush()
+        self._write_fn(val_file, self.val_files, self.val_labels, mode="Val")
 
-            image = load_image(self.val_files[i])
-            label = self.val_labels[i]
-
-            feature = {
-                'label': _int64_feature(label),
-                'image': _byte_feature(tf.compat.as_bytes(image.tostring()))
-            }
-
-            example = tf.train.Example(features=tf.train.Features(feature=feature))
-
-            writer.write(example.SerializeToString())
-        writer.close()
-
-        writer = tf.python_io.TFRecordWriter(test_file)
-        N = len(self.test_files)
-        for i in range(N):
-            if (i % 1000) == 0:
-                print('Test Data: %d/%d records saved' % (i,N))
-                sys.stdout.flush()
-
-            image = load_image(self.test_files[i])
-            label = self.test_labels[i]
-
-            feature = {
-                'label': _int64_feature(label),
-                'mage': _byte_feature(tf.compat.as_bytes(image.tostring()))
-            }
-
-            example = tf.train.Example(features=tf.train.Features(feature=feature))
-
-            writer.write(example.SerializeToString())
-        writer.close()
+        self._write_fn(test_file, self.test_files, self.test_labels, mode="Test")
 
 class TFRecordReader(object):
     def __init__(self, num_epochs=None):

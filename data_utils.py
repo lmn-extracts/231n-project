@@ -49,14 +49,17 @@ def load_image(image, input_width=100):
     """
         Resize an image to the "good" input size
     """
-    im_arr = cv2.imread(image)
+
     #print("Processing image", image)
     try:
+        im_arr = cv2.imread(image)
+        #print('im arr shape', im_arr.shape)
         r, c,_ = np.shape(im_arr)
         final_arr = cv2.resize(im_arr, (input_width,32), interpolation=cv2.INTER_CUBIC)
         final_arr = final_arr.astype(np.float32)
+        #print('final arr shape', final_arr.shape)
         return final_arr
-    except ValueError:
+    except (ValueError, AttributeError):
         print("Error while processing image ", image)
         raise
 
