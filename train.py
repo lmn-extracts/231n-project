@@ -4,6 +4,7 @@ from modules import *
 import numpy as np
 from data_provider import TFRecordReader
 from data_utils import *
+import sys
 
 # Debugging
 import cv2
@@ -56,7 +57,7 @@ def main(unused_args):
             _,cost, preds, gt_labels, iter_num = sess.run([optimizer, loss, decoded, labels, global_step])
             # print (model_output.shape)
             print (cost)
-
+            sys.stdout.flush()
 
         coord.request_stop()
         coord.join(threads)
