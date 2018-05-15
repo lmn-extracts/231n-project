@@ -14,13 +14,22 @@ class TFRecordWriter(object):
         fileList = []
         labelList = []
         label_dict = {}
+        total = 0
         with open(os.path.join(data_dir, 'gt.txt')) as f:
             for line in f:
                 filename, label = line.split(' ')
                 label = label.strip()
                 label = [chr2idx(c) for c in label]
                 label_dict[filename] = label
+                total += 1
+                if total % 100000 == 0:
+                    print('Annotations checked: %d'% (total))
+                    sys.stdout.flush()
+                    #msg = "\r- Annotations checked: {}".format(total)
+                    #sys.stdout.write(msg)
+                    #sys.stdout.flush()
 
+        total = 0
         for subdirs, dirs, files in os.walk(data_dir):
             for file in files:
                 ext = file.split('.')[-1]
@@ -28,6 +37,13 @@ class TFRecordWriter(object):
                     continue
                 fileList.append(os.path.join(subdirs, file))
                 labelList.append(label_dict[file.split('.')[0]])
+                total += 1
+                if total % 100000 == 0:
+                    print('Files Appended: %d'% (total))
+                    sys.stdout.flush()
+                    #msg = "\r- Files Appended: {}".format(total)
+                    #sys.stdout.write(msg)
+                    #sys.stdout.flush()
 
         self.split = split
 
