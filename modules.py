@@ -68,7 +68,7 @@ def MapToSequence(inputs):
     mprint('map2seq output', output.get_shape())
     return output
 
-def CRNN(inputs, hidden_size, max_char=25):
+def CRNN(inputs, hidden_size, max_char=25, batch_size=32):
     with tf.variable_scope('cnn'):
         conv_out = ConvolutionalNet(inputs) # N x 1 x W x C 
 
@@ -86,7 +86,7 @@ def CRNN(inputs, hidden_size, max_char=25):
 
     with tf.variable_scope('ctc_beam_search'):
         model_output = tf.transpose(rnn2_out, perm=[1,0,2]) # Dim: (W x N X 52) --> (Time x Batch_Size x Num_Classes)
-        decoded, logits = tf.nn.ctc_beam_search_decoder(model_output, 23 * np.ones(32), merge_repeated=False)
+        decoded, logits = tf.nn.ctc_beam_search_decoder(model_output, 23 * np.ones(batch_size), merge_repeated=False)
         mprint('conv_output', model_output.get_shape())
         mprint('conv_output', model_output.get_shape())
 

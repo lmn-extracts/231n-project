@@ -69,55 +69,55 @@ def main(unused_args):
         print("Could not find training file :", trainFile)
         exit(1)
 
-    with tf.device(device):
-        reader = TFRecordReader()
-        images, anno = reader._read_feature(trainFile)
+    #with tf.device(device):
+    reader = TFRecordReader()
+    images, anno = reader._read_feature(trainFile)
 
-        inputs, labels = tf.train.shuffle_batch([images, anno], batch_size=32, capacity=1000+2*32, min_after_dequeue=100, num_threads=1)
+    inputs, labels = tf.train.shuffle_batch([images, anno], batch_size=FLAGS.batch_size, capacity=1000+2*FLAGS.batch_size, min_after_dequeue=100, num_threads=1)
 
-        with tf.variable_scope('crnn', reuse=False):
-            model_output, decoded, logits = CRNN(inputs, hidden_size=256)
+    with tf.variable_scope('crnn', reuse=False):
+        model_output, decoded, logits = CRNN(inputs, hidden_size=256, batch_size=FLAGS.batch_size)
 
-        loss = tf.reduce_mean(tf.nn.ctc_loss(labels=labels, inputs=model_output, sequence_length=23 * np.ones(32), ignore_longer_outputs_than_inputs=True))
+    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=labels, inputs=model_output, sequence_length=23 * np.ones(FLAGS.batch_size), ignore_longer_outputs_than_inputs=True))
 
-        edit_dist = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
+    edit_dist = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
 
 
-        # Training Set-Up
-        global_step = tf.Variable(0, name='global_step', trainable=False)
+    # Training Set-Up
+    global_step = tf.Variable(0, name='global_step', trainable=False)
 
-        # exponentially decaying learning rate
-        lr_initial = FLAGS.lr
-        lr  =tf.train.exponential_decay(lr_initial, global_step, FLAGS.lr_decay_steps, FLAGS.lr_decay_rate, staircase=True)
+    # exponentially decaying learning rate
+    lr_initial = FLAGS.lr
+    lr  =tf.train.exponential_decay(lr_initial, global_step, FLAGS.lr_decay_steps, FLAGS.lr_decay_rate, staircase=True)
 
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
-            # optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(loss)
-            optimizer = tf.train.AdadeltaOptimizer(learning_rate=lr).minimize(loss=loss, global_step=global_step)
+    update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    with tf.control_dependencies(update_ops):
+        # optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(loss)
+        optimizer = tf.train.AdadeltaOptimizer(learning_rate=lr).minimize(loss=loss, global_step=global_step)
 
-        # Set up to save summaries
-        tboard_path = get_tboard_path()
-        print ('Saving summaries to ' + tboard_path)
+    # Set up to save summaries
+    tboard_path = get_tboard_path()
+    print ('Saving summaries to ' + tboard_path)
 
-        tf.summary.scalar('loss', loss)
-        tf.summary.scalar('edit_dist', edit_dist)
-        tf.summary.scalar('lr', lr)
-        merged_summaries = tf.summary.merge_all()
-        summary_writer = tf.summary.FileWriter(tboard_path)
+    tf.summary.scalar('loss', loss)
+    tf.summary.scalar('edit_dist', edit_dist)
+    tf.summary.scalar('lr', lr)
+    merged_summaries = tf.summary.merge_all()
+    summary_writer = tf.summary.FileWriter(tboard_path)
 
-        config  = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
+    config  = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
 
-        # Set up to save Model checkpoints
-        saver = tf.train.Saver()
-        bestmodel_saver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
-        best_val_acc = None
-        best_train_acc = None
-        model_dir = os.path.join(tboard_path, 'ckpts')
-        model_path = os.path.join(model_dir, 'model.ckpt')
-        best_model_path = os.path.join(model_dir, 'best_model.ckpt')
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
+    # Set up to save Model checkpoints
+    saver = tf.train.Saver()
+    bestmodel_saver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
+    best_val_acc = None
+    best_train_acc = None
+    model_dir = os.path.join(tboard_path, 'ckpts')
+    model_path = os.path.join(model_dir, 'model.ckpt')
+    best_model_path = os.path.join(model_dir, 'best_model.ckpt')
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
 
     with tf.Session(config=config) as sess:
         saver = initialize_model(sess, saver)
