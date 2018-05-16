@@ -145,7 +145,7 @@ def main(unused_args):
             accuracy = get_accuracy(preds, gt_labels)
 
             if iter_num % FLAGS.print_every == 0:
-                print ('Iter[{}] Loss: {:.4f}, Edit Dist: {:.4f}, Accuracy: {:.4f}, Time: {}'.format(iter_num, cost, eDist, accuracy, iter_time))
+                print ('Iter[{}] Loss: {:.8f}, Edit Dist: {:.8f}, Accuracy: {:.8f}, Time: {}'.format(iter_num, cost, eDist, accuracy, iter_time))
                 sys.stdout.flush()
 
 
@@ -155,12 +155,12 @@ def main(unused_args):
             #     bestmodel_saver.save(sess, best_model_path, global_step=step)
             if best_train_acc is None or best_train_acc < accuracy:
                 best_train_acc = accuracy
-                bestmodel_saver.save(sess, best_model_path, global_step=step)
+                bestmodel_saver.save(sess, best_model_path, global_step=iter_num)
 
-            summary_writer.add_summary(summary=summary, global_step=step)
+            summary_writer.add_summary(summary=summary, global_step=iter_num)
 
             if iter_num % FLAGS.save_every == 0:
-                saver.save(sess, model_path, global_step=step)            
+                saver.save(sess, model_path, global_step=iter_num)
 
         coord.request_stop()
         coord.join(threads)
