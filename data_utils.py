@@ -98,3 +98,22 @@ def get_accuracy(preds, labels):
         acc.append(correct/len(label))
     return np.mean(acc)
 
+def compute_accuracy(preds, labels):
+    total = tf.shape(labels.values)[0]
+    preds = tf.sparse_to_dense(preds.indices, preds.dense_shape, preds.values, default_value=-1)
+    labels = tf.sparse_to_dense(labels.indices, labels.dense_shape, labels.values, default_value=-2)
+
+    r = tf.shape(labels)[0]
+    c = tf.minimum(tf.shape(labels)[1], tf.shape(preds)[1])
+    preds = tf.slice(preds, [0,0], [r,c])
+    labels = tf.slice(labels, [0,0], [r,c])
+
+    preds = tf.cast(preds, tf.int32)
+    labels = tf.cast(labels, tf.int32)
+
+    correct = tf.reduce_sum(tf.cast(tf.equal(preds, labels), tf.int32))
+    accuracy = tf.divide(correct, total)
+    return accuracy
+
+
+

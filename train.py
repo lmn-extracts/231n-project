@@ -79,9 +79,8 @@ def main(unused_args):
         model_output, decoded, logits = CRNN(inputs, hidden_size=256, batch_size=FLAGS.batch_size)
 
     loss = tf.reduce_mean(tf.nn.ctc_loss(labels=labels, inputs=model_output, sequence_length=23 * np.ones(FLAGS.batch_size), ignore_longer_outputs_than_inputs=True))
-
     edit_dist = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
-
+    accuracy = compute_accuracy(decoded[0], labels)
 
     # Training Set-Up
     global_step = tf.Variable(0, name='global_step', trainable=False)
@@ -102,6 +101,7 @@ def main(unused_args):
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('edit_dist', edit_dist)
     tf.summary.scalar('lr', lr)
+    tf.summary.scalar('accuracy', accuracy)
     merged_summaries = tf.summary.merge_all()
     summary_writer = tf.summary.FileWriter(tboard_path)
 
@@ -129,23 +129,23 @@ def main(unused_args):
 
         for step in range(FLAGS.train_steps):
             tic = time.time()
-            _,cost, eDist, preds, gt_labels, iter_num, summary = sess.run([optimizer, loss, edit_dist, decoded, labels, global_step, merged_summaries])
+            _,cost, acc, eDist, preds, gt_labels, iter_num, summary = sess.run([optimizer, loss, accuracy, edit_dist, decoded, labels, global_step, merged_summaries])
             toc = time.time()
             iter_time = toc-tic
 
-            # compute accuracy
-            preds = preds[0]
-            preds = tf.sparse_to_dense(preds.indices, preds.dense_shape, preds.values, default_value=-1)
-            gt_labels = tf.sparse_to_dense(gt_labels.indices, gt_labels.dense_shape, gt_labels.values, default_value=-1)
-            preds, gt_labels = sess.run([preds, gt_labels])
+            # # compute accuracy
+            # preds = preds[0]
+            # preds = tf.sparse_to_dense(preds.indices, preds.dense_shape, preds.values, default_value=-1)
+            # gt_labels = tf.sparse_to_dense(gt_labels.indices, gt_labels.dense_shape, gt_labels.values, default_value=-1)
+            # preds, gt_labels = sess.run([preds, gt_labels])
 
-            preds = nd_array_to_labels(preds)
-            gt_labels = nd_array_to_labels(gt_labels)
+            # preds = nd_array_to_labels(preds)
+            # gt_labels = nd_array_to_labels(gt_labels)
 
-            accuracy = get_accuracy(preds, gt_labels)
+            # accuracy = get_accuracy(preds, gt_labels)
 
             if iter_num % FLAGS.print_every == 0:
-                print ('Iter[{}] Loss: {:.8f}, Edit Dist: {:.8f}, Accuracy: {:.8f}, Time: {}'.format(iter_num, cost, eDist, accuracy, iter_time))
+                print ('Iter[{}] Loss: {:.8f}, Edit Dist: {:.8f}, Accuracy: {:.8f}, Time: {}'.format(iter_num, cost, eDist, acc, iter_time))
                 sys.stdout.flush()
 
 
@@ -153,8 +153,8 @@ def main(unused_args):
             # if best_val_acc is None or best_val_acc < accuracy:
             #     best_val_acc = accuracy
             #     bestmodel_saver.save(sess, best_model_path, global_step=step)
-            if best_train_acc is None or best_train_acc < accuracy:
-                best_train_acc = accuracy
+            if best_train_acc is None or best_train_acc < acc:
+                best_train_acc = acc
                 bestmodel_saver.save(sess, best_model_path, global_step=iter_num)
 
             summary_writer.add_summary(summary=summary, global_step=iter_num)
