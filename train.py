@@ -91,7 +91,7 @@ def main(unused_args):
 
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
-        # optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001).minimize(loss)
+        #optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.0005).minimize(loss)
         optimizer = tf.train.AdadeltaOptimizer(learning_rate=lr).minimize(loss=loss, global_step=global_step)
 
     # Set up to save summaries

@@ -1,4 +1,6 @@
 SampleSet/
-nohup.out
+*nohup.out
 code/*.pyc
-__pycache__/*.pyc
+__pycache__/
+.ipynb_checkpoints/
+experiments/
