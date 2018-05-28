@@ -2,12 +2,7 @@ import tensorflow as tf
 from dataset_helper import *
 from custom_estimator import *
 from modules import *
-import numpy as np
-from data_provider import TFRecordReader
 from data_utils import *
-import time
-import sys
-
 
 # Define a few constants
 flags = tf.app.flags
@@ -20,6 +15,7 @@ flags.DEFINE_string('datadir', './', "Path to datasets")
 flags.DEFINE_boolean('gpu', False, 'Indicate wheter to run on GPU')
 
 flags.DEFINE_integer("batch_size", 32, "Defaults to 32")
+flags.DEFINE_integer("val_batch_size", 32, "Defaults to 32")
 flags.DEFINE_integer("train_steps", 40000, "Defaults to 40000")
 flags.DEFINE_integer("print_every", 1, "Defaults to 1")
 flags.DEFINE_integer("save_every", 500, "Defaults to 500")
@@ -43,30 +39,12 @@ def get_tboard_path():
 
     return exp_path
 
-def initialize_model(sess, saver):
-    exp_path = get_tboard_path()
-    exp_path = os.path.join(exp_path, 'ckpts')
-    print ("Looking for model at %s..." % exp_path)
-
-    ckpt = tf.train.get_checkpoint_state(exp_path)
-    v2_path = ckpt.model_checkpoint_path + ".index" if ckpt else ""
-
-    if ckpt and (tf.gfile.Exists(ckpt.model_checkpoint_path) or tf.gfile.Exists(v2_path)):
-        print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-        saver.restore(sess, ckpt.model_checkpoint_path)
-
-    else:
-        print ('Training model from scratch')
-        init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
-        sess.run(init_op)
-    return saver
-
 def main(unused_args):
 
     trainFile = os.path.join(FLAGS.datadir, FLAGS.input)
     valFile = os.path.join(FLAGS.datadir, FLAGS.valfile)
     #testFile = os.path.join(FLAGS.datadir, FLAGS.testfile)
-    val_test_batch_size = 32
+    val_test_batch_size = FLAGS.val_batch_size
 
     if (not os.path.exists(trainFile)):
         print("Could not find training file :", trainFile)
@@ -74,8 +52,8 @@ def main(unused_args):
 
     tboard_path = get_tboard_path()
     model_dir = os.path.join(tboard_path, 'ckpts')
-    model_path = os.path.join(model_dir, 'model.ckpt')
-    best_model_path = os.path.join(model_dir, 'best_model.ckpt')
+    #model_path = os.path.join(model_dir, 'model.ckpt')
+    #best_model_path = os.path.join(model_dir, 'best_model.ckpt')
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 

@@ -47,14 +47,13 @@ def input_fn(filenames, train=True, batch_size=32, buffer_size=2048):
         # Get a batch of data with the given size.
         dataset = dataset.batch(batch_size)
     else:
-        # If testing then don't shuffle the data and rop remainder
+        # If testing then don't shuffle the data and drop remainder
         num_repeat = 1
         # Repeat the dataset the given number of times.
         dataset = dataset.repeat(num_repeat)
 
         # Only go through the data once.
         dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
-
 
     # Create an iterator for the dataset and the above modifications.
     iterator = dataset.make_one_shot_iterator()
@@ -66,5 +65,4 @@ def input_fn(filenames, train=True, batch_size=32, buffer_size=2048):
     x = {'image': images_batch}
     y = labels_batch
 
-    # return x, y
     return x, y
