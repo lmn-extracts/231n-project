@@ -44,11 +44,11 @@ def StackedRNN(inputs, hidden_size):
     bw_cells = [rnn_cell.LSTMCell(hidden_size), rnn_cell.LSTMCell(hidden_size)]
     stacked_out, _, _ = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(fw_cells, bw_cells, inputs, dtype=tf.float32)
 
-    N, _, h = inputs.get_shape().as_list() # N x W x 2h
+    _, W, h = inputs.get_shape().as_list() # N x W x 2h; N returns ? None when using dataset batch
     stacked_out = tf.reshape(stacked_out, [-1, h])  # NW x 2h
 
     output = tf.layers.dense(stacked_out, units=53)
-    output = tf.reshape(output, [N,-1,53]) # N x W x 52
+    output = tf.reshape(output, [-1,W,53]) # N x W x 52
     # output = tf.transpose(output, [1,0,2]) # W x H x 52; Necessary for input to CTC Loss
     mprint('RNN output', output.get_shape())
 
@@ -87,7 +87,6 @@ def CRNN(inputs, hidden_size, max_char=25, batch_size=32):
     with tf.variable_scope('ctc_beam_search'):
         model_output = tf.transpose(rnn2_out, perm=[1,0,2]) # Dim: (W x N X 52) --> (Time x Batch_Size x Num_Classes)
         decoded, logits = tf.nn.ctc_beam_search_decoder(model_output, 23 * np.ones(batch_size), merge_repeated=True)
-        mprint('conv_output', model_output.get_shape())
         mprint('conv_output', model_output.get_shape())
 
     return model_output, decoded, logits 
