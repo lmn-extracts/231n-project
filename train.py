@@ -20,6 +20,9 @@ flags.DEFINE_integer("train_steps", 40000, "Defaults to 40000")
 flags.DEFINE_integer("print_every", 1, "Defaults to 1")
 flags.DEFINE_integer("save_every", 500, "Defaults to 500")
 flags.DEFINE_integer("lr_decay_steps", 10000, "Defaults to 10000")
+flags.DEFINE_integer("eval_throttle_secs", 600, "Defaults to 600")
+flags.DEFINE_integer("eval_steps", 1000, "Defaults to 1000")
+flags.DEFINE_integer("parallel_cpu", 1, "Defaults to 1")
 
 flags.DEFINE_float("lr_decay_rate", 0.001, "Defaults to 0.1")
 flags.DEFINE_float("lr", 5e-4, "Defaults to 5e-4")
@@ -59,7 +62,6 @@ def main(unused_args):
 
     feature_image = tf.feature_column.numeric_column("image",
                                                  shape=[32, 100, 3])
-
     my_feature_columns = [feature_image]
 
     classifier = tf.estimator.Estimator(
@@ -75,12 +77,30 @@ def main(unused_args):
         },
         model_dir = model_dir)
 
-    classifier.train(
-        input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size),
-        steps=FLAGS.train_steps
-    )
+    train_spec = tf.estimator.TrainSpec(
+        input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size, parallel_calls=FLAGS.parallel_cpu),
+        max_steps=FLAGS.train_steps)
 
-    eval_result = classifier.evaluate(input_fn=lambda:input_fn(valFile, train=False, batch_size=val_test_batch_size))
+    eval_spec = tf.estimator.EvalSpec(
+        #input_fn=lambda:input_fn(valFile, train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
+        input_fn=lambda: input_fn(valFile, train=True, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
+        steps=FLAGS.eval_steps,
+        exporters=None,
+        name='text-eval',
+        throttle_secs=FLAGS.eval_throttle_secs)
+
+    tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
+
+
+    # for i in range(3):
+    #     classifier.train(
+    #         input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size, parallel_calls=FLAGS.parallel_cpu),
+    #         steps=FLAGS.train_steps
+    #     )
+    #
+    #     eval_result = classifier.evaluate(input_fn=lambda:input_fn(valFile,
+    #                     train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
+    #                                       steps=FLAGS.eval_steps, )
 
     #print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result['accuracy']))
 

@@ -18,7 +18,7 @@ def parse(serialized):
     return image, label
 
 
-def input_fn(filenames, train=True, batch_size=32, buffer_size=2048):
+def input_fn(filenames, train=True, batch_size=32, buffer_size=49152, parallel_calls=1):
     # Args:
     # filenames:   Filenames for the TFRecords files.
     # train:       Boolean whether training (True) or testing (False).
@@ -32,7 +32,7 @@ def input_fn(filenames, train=True, batch_size=32, buffer_size=2048):
 
     # Parse the serialized data in the TFRecords files.
     # This returns TensorFlow tensors for the image and labels.
-    dataset = dataset.map(parse)
+    dataset = dataset.map(parse, num_parallel_calls=parallel_calls)
 
     if train:
         # If training then read a buffer of the given size and
@@ -46,6 +46,7 @@ def input_fn(filenames, train=True, batch_size=32, buffer_size=2048):
 
         # Get a batch of data with the given size.
         dataset = dataset.batch(batch_size)
+        dataset = dataset.prefetch(buffer_size=batch_size)
     else:
         # If testing then don't shuffle the data and drop remainder
         num_repeat = 1
@@ -66,3 +67,8 @@ def input_fn(filenames, train=True, batch_size=32, buffer_size=2048):
     y = labels_batch
 
     return x, y
+
+def serving_input_fn():
+    inputs = {}
+    inputs['image'] = tf.placeholder(shape=[None], dtype=tf.float32)
+    return tf.estimator.export.ServingInputReceiver(inputs, inputs)

@@ -42,13 +42,15 @@ def crnn_model(features, labels, mode, params):
     tf.summary.scalar('loss', loss)
     tf.summary.scalar('edit_dist', edit_dist)
     tf.summary.scalar('accuracy', accuracy)
-    merged_summaries = tf.summary.merge_all()
 
     if mode == tf.estimator.ModeKeys.EVAL:
-        tf.summary.scalar('loss', loss)
+        # eval_summ_hook = tf.train.SummarySaverHook(
+        #     save_steps=200,
+        #     summary_op=tf.summary.merge_all())
+        #return tf.estimator.EstimatorSpec(mode, loss=loss, evaluation_hooks=[eval_summ_hook])
 
-        return tf.estimator.EstimatorSpec(mode, loss=loss,
-                                                  eval_metric_ops=metrics)
+        #return tf.estimator.EstimatorSpec(mode, loss=loss)
+        return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
 
     assert mode == tf.estimator.ModeKeys.TRAIN
 
@@ -58,6 +60,3 @@ def crnn_model(features, labels, mode, params):
         optimizer = tf.train.AdadeltaOptimizer(learning_rate=lr)
         train_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step())
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
-
-
-
