@@ -16,6 +16,12 @@ def _byte_feature(value):
         val = [value]
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=val))
 
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _int64_feature_list(values):
+    return tf.train.FeatureList(feature=[_int64_feature(v) for v in values])
+
 def get_file_names(dirname):
     fileList = []
     labelList = []
@@ -51,7 +57,8 @@ def load_image(image, input_width=100):
         Resize an image to the "good" input size
     """
 
-    #print("Processing image", image)
+    print("Processing image", image)
+    
     try:
         im_arr = cv2.imread(image)
         #print('im arr shape', im_arr.shape)

@@ -1,4 +1,5 @@
 import tensorflow as tf
+from data_utils import *
 
 def parse(serialized):
     # Define a dict with the data-names and types we expect to
@@ -9,10 +10,12 @@ def parse(serialized):
     features = tf.parse_single_example(serialized,
                                        features={
                                            'label': tf.VarLenFeature(tf.int64),
-                                           'image': tf.FixedLenFeature([], tf.string)
+                                           'image': tf.FixedLenFeature((), tf.string)
                                        })
-
-    image = tf.decode_raw(features['image'], tf.float32)
+    
+    image = tf.image.decode_jpeg(features['image'], channels=3)
+    image = tf.image.resize_images(image, [32,100], tf.image.ResizeMethod.BICUBIC)
+    image = tf.cast(image, tf.float32)
     image = tf.reshape(image, [32, 100, 3])
     label = tf.cast(features['label'], tf.int32)
     return image, label

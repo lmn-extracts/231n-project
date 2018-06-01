@@ -2,7 +2,6 @@ import argparse
 from data_provider import *
 import os
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', '-d')

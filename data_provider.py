@@ -1,9 +1,10 @@
 from data_utils import *
-from data_utils import _int64_feature, _byte_feature
+from data_utils import _int64_feature, _bytes_feature
 import tensorflow as tf
 import os
 import sys
 import random
+import io
 
 class TFRecordWriter(object):
     def __init__(self, data_dir, split=False, max_imgs=None):
@@ -12,11 +13,18 @@ class TFRecordWriter(object):
             - data_dir: Location where the images and the ground truth label files reside
             - split: Boolean flag. Indicates whether or not to split the data into train/val/test
             - max_imgs: Number of max images to write to tfrecord files
+        Operation:
+         - Intializes self.train_files to contain the list of image file names
+         - Initialzes self.train_labels to contain the list of labels correspondingi to self.train_files
+         - Similarly initializes self.val_files, self.val_labels, self.test_files, self.test_labels
         '''
         fileList = []
         labelList = []
         label_dict = {}
         total = 0
+
+        # Store the label for each file in a label dictionary
+        # example: label_dict[15] = STOP
         with open(os.path.join(data_dir, 'gt.txt')) as f:
             for line in f:
                 filename, label = line.split(' ')
@@ -75,16 +83,15 @@ class TFRecordWriter(object):
                 print('%s Data: %d/%d records saved' % (mode, i,N))
                 sys.stdout.flush()
 
-            try:
-                #print('Try image: ', image_list[i])
-                image = load_image(image_list[i])
-            except (ValueError, AttributeError):
-                print('Ignoring image: ', image_list[i])
-                continue
-            label = label_list[i]
+            with tf.gfile.GFile(image_list[i], 'rb') as fid:
+                encoded_image = fid.read()
+            encoded_image_io = io.BytesIO(encoded_image)
+
+
+            # write the label (string) and image filename (string)
             feature = {
-                'label': _int64_feature(label),
-                'image': _byte_feature(tf.compat.as_bytes(image.tostring()))
+                'label': _int64_feature(label_list[i]),
+                'image': _bytes_feature(encoded_image)
             }
 
             example = tf.train.Example(features=tf.train.Features(feature=feature))
@@ -113,13 +120,19 @@ class TFRecordReader(object):
 
         features = tf.parse_single_example(serialized_example, 
             features={
-                'label': tf.VarLenFeature(tf.int64),
-                'image': tf.FixedLenFeature([], tf.string)
+                'label': tf.VarLenFeature(tf.string),
+                'image': tf.VarLenFeature(tf.string)
             })
 
-        image = tf.decode_raw(features['image'], tf.float32)
+        image = tf.load_image(features['image'])
+        image = tf.decode_raw(image, tf.float32)
         image = tf.reshape(image, [32,100,3])
-        label = tf.cast(features['label'], tf.int32)
+        label = [chr2idx(c) for c in features['label']]
+        label = tf.cast(label, tf.int32)
+
+        # image = tf.decode_raw(features['image'], tf.float32)
+        # image = tf.reshape(image, [32,100,3])
+        # label = tf.cast(features['label'], tf.int32)
         return image, label
 
 
