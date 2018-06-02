@@ -4,7 +4,9 @@ Processes each image in the DATA_DIRECTORY using ground truth values in file PAT
 In particular, it performs the following preprocessing:
     - Extract alphabetic text strings corresponding to each image
     - Crop and warp each alphabetic word instance and save as image in TARGET_DIR
-    - Save labels corresponding to each saved word instance in TARGET_DIR\\labels.mat
+    - Save labels corresponding to each saved word instance in TARGET_DIR\\labels.txt in the following format
+      Example:
+      Record 0 STRING corresponds to word instance stored in image 0.jpg with label STRING.
 
 Usage:
 python create_synth_dataset.py -d DATA_DIRECTORY -gt PATH_TO_GT_MAT
@@ -39,6 +41,10 @@ def main(args):
     data_dir = args['dir']
     gt_path = args['gt']
     target_dir = args['target']
+
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
+
     log_file_path = os.path.join(target_dir, 'log.txt')
 
     logging.basicConfig(filename=log_file_path, filemode='w', level=logging.DEBUG, format='%(levelname)s %(asctime)s:%(message)s')
@@ -55,9 +61,6 @@ def main(args):
         logging.error('Could not locate Ground Truth MATLAB File at [{}]'.format(gt_path))
         # print 'Could not locate Ground Truth MATLAB File at [{}]'.format(gt_path)
         return
-
-    if not os.path.exists(target_dir):
-        os.makedirs(target_dir)
 
     try:
         logging.info('Loading Ground Truth MATLAB file from %s'%(gt_path))
@@ -77,13 +80,18 @@ def main(args):
     # Track success
     success_count = 1
     failure_count = 1
+    file_number = 1
 
     # Store labels in the form: labels[IMAGE_FILE_NAME] = TEXT. Example: labels['0.jpg'] = 'Lines'
-    labels = {}
-
+    # labels = []
+    target_labels_path = os.path.join(target_dir, 'gt.txt')
+    labels_file = open(target_labels_path, 'w')
     for dirpath, dirname, files in os.walk(data_dir):
         for filename in files:
             folder = dirpath.split('\\')[-1]
+            target_folder = os.path.join(target_dir, folder)
+            if not os.path.exists(target_folder):
+                os.makedirs(target_folder)
             imagepath = '%s/%s'%(folder,filename)
             filepath = os.path.join(dirpath, filename)
             ext = filename.split('.')[-1]
@@ -118,23 +126,26 @@ def main(args):
                 image = cv2.imread(filepath)
                 for idx in indices:
                     warped = four_point_transform(image, bboxes[idx,:,:])
-                    target_image_file = '%d.jpg'%(success_count)
-                    targetpath = os.path.join(target_dir, target_image_file)
+                    target_image_file = '%d.jpg'%(file_number)
+                    targetpath = os.path.join(target_folder, target_image_file)
                     cv2.imwrite(targetpath, warped)
                     logging.info('SUCCESS: [%s]'%(targetpath))
-                    labels[target_image_file] = text_strings[idx][0]
+                    # labels[target_image_file] = text_strings[idx][0]
+                    labels_file.write('%d %s\n'%(file_number,text_strings[idx]))
+                    file_number += 1                    
                 logging.info('Finished processing [%s]. Success: %d'%(imagepath, success_count))
                 success_count += 1
             except Exception as e:
                 logging.debug('Skipping [%s]. Details: %s. Failed: %d'%(imagepath, str(e), failure_count))
                 failure_count += 1
                 continue
+    labels_file.close()
 
-    try:
-        target_labels_path = os.path.join(target_dir, 'labels.mat')
-        sio.savemat(target_labels_path, labels)
-    except Exception as e:
-        logging.debug('Error while writing labels to %s'%(target_labels_path))
+    # try:
+    #     target_labels_path = os.path.join(target_dir, 'labels.mat')
+    #     sio.savemat(target_labels_path, labels)
+    # except Exception as e:
+    #     logging.debug('Error while writing labels to %s'%(target_labels_path))
 
     return
 
