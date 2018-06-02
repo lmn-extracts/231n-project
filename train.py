@@ -3,6 +3,7 @@ from dataset_helper import *
 from custom_estimator import *
 from modules import *
 from data_utils import *
+from best_exporter import *
 
 # Define a few constants
 flags = tf.app.flags
@@ -81,11 +82,21 @@ def main(unused_args):
         input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size, parallel_calls=FLAGS.parallel_cpu),
         max_steps=FLAGS.train_steps)
 
+    serving_feature_spec = tf.feature_column.make_parse_example_spec(my_feature_columns)
+    serving_input_receiver_fn = (
+        tf.estimator.export.build_parsing_serving_input_receiver_fn(
+            serving_feature_spec))
+    exporter = BestExporter(
+        name="best_exporter",
+        event_file_pattern='eval_text-eval/*.tfevents.*', # must match name in eval_spec
+        serving_input_receiver_fn=serving_input_receiver_fn,
+        exports_to_keep=5)
+
     eval_spec = tf.estimator.EvalSpec(
         #input_fn=lambda:input_fn(valFile, train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
         input_fn=lambda: input_fn(valFile, train=True, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
         steps=FLAGS.eval_steps,
-        exporters=None,
+        exporters=exporter,
         name='text-eval',
         throttle_secs=FLAGS.eval_throttle_secs)
 
