@@ -76,7 +76,7 @@ def main(args):
     # Create dictionary of image names for fast retrieval of index
     imnames = dict((image_names[i][0], i) for i in range(len(image_names)))
     del image_names
-
+    del mat
     # Track success
     success_count = 1
     failure_count = 1
@@ -84,69 +84,50 @@ def main(args):
 
     # Store labels in the form: labels[IMAGE_FILE_NAME] = TEXT. Example: labels['0.jpg'] = 'Lines'
     # labels = []
+
     target_labels_path = os.path.join(target_dir, 'gt.txt')
     labels_file = open(target_labels_path, 'w')
-    for dirpath, dirname, files in os.walk(data_dir):
-        for filename in files:
-            folder = dirpath.split('\\')[-1]
-            target_folder = os.path.join(target_dir, folder)
-            if not os.path.exists(target_folder):
-                os.makedirs(target_folder)
-            imagepath = '%s/%s'%(folder,filename)
-            filepath = os.path.join(dirpath, filename)
-            ext = filename.split('.')[-1]
-            if not (ext == 'jpg' or ext == 'jpeg' or ext == 'png'):
-                continue
-            logging.info('Processsing file [%s] with imagepath [%s]'%(filepath, imagepath))
 
-            # Get index of image; Log error if unable to locate record
-            try:
-                i = imnames[imagepath]
-            except:
-                logging.debug('Skipping [%s]. Could not locate record in imnames. Failed: %d'%(imagepath, failure_count))
+    for i,imagepath in enumerate(imnames):
+        imagepath.replace('/','\\')
+        filepath = os.path.join(data_dir, imagepath)
+        text_strings = get_text_strings(txt[i].tolist())
+        try:
+            # Check if number of retrieved words is correct, i.e. compare it with the number of bounding boxes
+            # When the number of words is 1, then bounding box has shape (2,4). Expand dims such that dims is (2,4,1)
+            if len(wordBB[i].shape) != 3:
+                wordBB[i] = np.expand_dims(wordBB[i], 2)
+            if len(text_strings) != wordBB[i].shape[-1]:
+                logging.debug('Skipping [%s] due to error in num_words. Failed: %d'%(imagepath, failure_count))
                 failure_count += 1
                 continue
-            text_strings = get_text_strings(txt[i].tolist())
 
-            try:
-                # Check if number of retrieved words is correct, i.e. compare it with the number of bounding boxes
-                # When the number of words is 1, then bounding box has shape (2,4). Expand dims such that dims is (2,4,1)
-                if len(wordBB[i].shape) != 3:
-                    wordBB[i] = np.expand_dims(wordBB[i], 2)
-                if len(text_strings) != wordBB[i].shape[-1]:
-                    logging.debug('Skipping [%s] due to error in num_words. Failed: %d'%(imagepath, failure_count))
-                    failure_count += 1
-                    continue
+            # Filter words that are alphabetic
+            indices = [idx for idx in range(len(text_strings)) if text_strings[idx].isalpha()]
 
-                # Filter words that are alphabetic
-                indices = [idx for idx in range(len(text_strings)) if text_strings[idx].isalpha()]
+            # Process and store each image 
+            bboxes = np.transpose(wordBB[i], [2,1,0])
+            image = cv2.imread(filepath)
+            for idx in indices:
+                warped = four_point_transform(image, bboxes[idx,:,:])
+                target_folder = os.path.dirname(imagepath)
+                target_folder = os.path.join(target_dir, target_folder)
+                if not os.path.exists(target_folder):
+                    os.makedirs(target_folder)
+                target_image_file = '%d.jpg'%(file_number)
+                targetpath = os.path.join(target_folder, target_image_file)
 
-                # Process and store each image 
-                bboxes = np.transpose(wordBB[i], [2,1,0])
-                image = cv2.imread(filepath)
-                for idx in indices:
-                    warped = four_point_transform(image, bboxes[idx,:,:])
-                    target_image_file = '%d.jpg'%(file_number)
-                    targetpath = os.path.join(target_folder, target_image_file)
-                    cv2.imwrite(targetpath, warped)
-                    logging.info('SUCCESS: [%s]'%(targetpath))
-                    # labels[target_image_file] = text_strings[idx][0]
-                    labels_file.write('%d %s\n'%(file_number,text_strings[idx]))
-                    file_number += 1                    
-                logging.info('Finished processing [%s]. Success: %d'%(imagepath, success_count))
-                success_count += 1
-            except Exception as e:
-                logging.debug('Skipping [%s]. Details: %s. Failed: %d'%(imagepath, str(e), failure_count))
-                failure_count += 1
-                continue
+                cv2.imwrite(targetpath, warped)
+                logging.info('SUCCESS: [%s]'%(targetpath))
+                labels_file.write('%d %s\n'%(file_number,text_strings[idx]))
+                file_number += 1                    
+            logging.info('Finished processing [%s]. Success: %d'%(imagepath, success_count))
+            success_count += 1
+        except Exception as e:
+            logging.debug('Skipping [%s]. Details: %s. Failed: %d'%(imagepath, str(e), failure_count))
+            failure_count += 1
+            continue
     labels_file.close()
-
-    # try:
-    #     target_labels_path = os.path.join(target_dir, 'labels.mat')
-    #     sio.savemat(target_labels_path, labels)
-    # except Exception as e:
-    #     logging.debug('Error while writing labels to %s'%(target_labels_path))
-
     return
 
 
