@@ -83,10 +83,8 @@ class TFRecordWriter(object):
                 print('%s Data: %d/%d records saved' % (mode, i,N))
                 sys.stdout.flush()
 
-            with tf.gfile.GFile(image_list[i], 'rb') as fid:
-                encoded_image = fid.read()
-            encoded_image_io = io.BytesIO(encoded_image)
-
+            # Resize image to 32 x 100 and get encoded byte string
+            encoded_image = resized_byte_string(image_list[i])
 
             # write the label (string) and image filename (string)
             feature = {

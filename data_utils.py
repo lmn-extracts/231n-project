@@ -3,6 +3,8 @@ import tensorflow as tf
 import numpy as np
 from random import shuffle
 import cv2
+import math
+from scipy.stats import mode
 
 def _int64_feature(value):
     val = value
@@ -121,6 +123,40 @@ def compute_accuracy(preds, labels):
     correct = tf.reduce_sum(tf.cast(tf.equal(preds, labels), tf.int32))
     accuracy = tf.divide(correct, total)
     return accuracy
+
+
+# Get resized image
+def resized_byte_string(filename):
+    image = cv2.imread(filename)
+    # Convert to RGB as Tensorflow processes RGB images
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    h,w,_ = image.shape
+
+    result = np.zeros([32,100,3])
+    
+    # Compute the background by taking the most common value across the 3 channels
+    c0 = mode(image[:,:,0])[0][0][0]
+    c1 = mode(image[:,:,1])[0][0][0]
+    c2 = mode(image[:,:,2])[0][0][0]
+
+    result = result.astype(np.uint8)
+
+    # Compute Stretch Factors
+    sw = 100/w
+    sh = 32/h
+    
+    stretch = min(sw,sh)
+    sw = min(int(math.ceil(stretch * w)), 100)
+    sh = min(int(math.ceil(stretch * h)), 32)
+
+    image = cv2.resize(image, (sw,sh))
+    result[:sh,:sw,:] = image
+
+    # Encode resized image to byte string
+    encoded_image = cv2.imencode('.jpg', result, [int(cv2.IMWRITE_JPEG_QUALITY), 100])[1].tostring()
+    return encoded_image
+
 
 
 

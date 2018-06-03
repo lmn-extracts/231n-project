@@ -23,6 +23,7 @@ import re
 import argparse
 import os
 import logging
+import time
 
 from dataset_utils import *
 
@@ -82,6 +83,7 @@ def main(args):
     failure_count = 1
     file_number = 1
 
+    tic = time.time()
     # Store labels in the form: labels[IMAGE_FILE_NAME] = TEXT. Example: labels['0.jpg'] = 'Lines'
     # labels = []
 
@@ -128,6 +130,8 @@ def main(args):
             failure_count += 1
             continue
     labels_file.close()
+    toc = time.time()
+    print('Time Taken: %d'%(toc-tic))
     return
 
 
