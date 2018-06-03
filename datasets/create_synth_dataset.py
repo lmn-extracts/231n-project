@@ -119,11 +119,13 @@ def main(args):
                 targetpath = os.path.join(target_folder, target_image_file)
 
                 cv2.imwrite(targetpath, warped)
-                logging.info('SUCCESS: [%s]'%(targetpath))
+                # logging.info('SUCCESS: [%s]'%(targetpath))
                 labels[os.path.normpath(targetpath)] = text_strings[idx]
                 file_number += 1                    
-            logging.info('Finished processing [%s]. Success: %d'%(imagepath, success_count))
+            # logging.info('Finished processing [%s]. Success: %d'%(imagepath, success_count))
             success_count += 1
+            if success_count % 1000 == 0:
+                logging.info('Last Processed: [%s]. Successfully processed %d records.'%(imagepath, success_count))
         except Exception as e:
             logging.debug('Skipping [%s]. Details: %s. Failed: %d'%(imagepath, str(e), failure_count))
             failure_count += 1
