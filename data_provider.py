@@ -5,6 +5,66 @@ import os
 import sys
 import random
 import io
+import scipy.io as sio
+
+class SynthTFRecordWriter(object):
+    def __init__(self, data_dir, gt_path, split=False):
+        if not os.path.exists(gt_path):
+            print('Could not locate Ground Truth dictionary at %s'%(gt_path))
+            return
+
+        if not os.path.exists(data_dir):
+            print('Data Directory [%s] does not exist.'%(data_dir))
+
+        self.labels = sio.loadmat(gt_path)
+        self.split = split
+        all_files = list(self.labels.keys())[3:]
+        N = len(all_files)
+
+        self.train_files = all_files
+
+        if split:
+            self.train_files = all_files[0: int(0.6 * N)]
+            self.val_files = all_files[int(0.6*N):int(0.8*N)]
+            self.test_files = all_files[int(0.8*N):]
+
+
+    def _write_fn(self, out_file, image_list, mode):
+        writer = tf.python_io.TFRecordWriter(out_file)
+        N = len(image_list)
+        for i in range(N):
+            if (i % 1000) == 0:
+                print('%s Data: %d/%d records saved' % (mode, i,N))
+                sys.stdout.flush()
+
+            # Resize image to 32 x 100 and get encoded byte string
+            encoded_image = resized_byte_string(image_list[i])
+            # Convert label to integer representation
+            label = (self.labels[image_list[i]][0]).strip()
+            encoded_label = [chr2idx(c) for c in label]
+
+            # write the label (string) and image filename (string)
+            feature = {
+                'label': _int64_feature(encoded_label),
+                'image': _bytes_feature(encoded_image)
+            }
+
+            example = tf.train.Example(features=tf.train.Features(feature=feature))
+
+            writer.write(example.SerializeToString())
+        writer.close()
+
+    def _write_feature(self, train_file, val_file=None, test_file=None):
+        self._write_fn(train_file, self.train_files, mode="Train")
+
+        if not self.split:
+            return
+
+        self._write_fn(val_file, self.val_files, mode="Val")
+
+        self._write_fn(test_file, self.test_files, mode="Test")
+
+
 
 class TFRecordWriter(object):
     def __init__(self, data_dir, split=False, max_imgs=None):

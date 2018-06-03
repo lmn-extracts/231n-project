@@ -85,10 +85,9 @@ def main(args):
 
     tic = time.time()
     # Store labels in the form: labels[IMAGE_FILE_NAME] = TEXT. Example: labels['0.jpg'] = 'Lines'
-    # labels = []
+    labels = {}
 
-    target_labels_path = os.path.join(target_dir, 'gt.txt')
-    labels_file = open(target_labels_path, 'w')
+    target_labels_path = os.path.join(target_dir, 'gt.mat')
 
     for i,imagepath in enumerate(imnames):
         imagepath.replace('/','\\')
@@ -121,7 +120,7 @@ def main(args):
 
                 cv2.imwrite(targetpath, warped)
                 logging.info('SUCCESS: [%s]'%(targetpath))
-                labels_file.write('%d %s\n'%(file_number,text_strings[idx]))
+                labels[os.path.normpath(targetpath)] = text_strings[idx]
                 file_number += 1                    
             logging.info('Finished processing [%s]. Success: %d'%(imagepath, success_count))
             success_count += 1
@@ -129,7 +128,13 @@ def main(args):
             logging.debug('Skipping [%s]. Details: %s. Failed: %d'%(imagepath, str(e), failure_count))
             failure_count += 1
             continue
-    labels_file.close()
+
+    try:
+        logging.info('Saving labels to [%s]'%(target_labels_path))
+        sio.savemat(target_labels_path, labels)
+    except Exception as e:
+        logging.error('Could not save labels to [%s]'%(target_labels_path))
+
     toc = time.time()
     print('Time Taken: %d'%(toc-tic))
     return
