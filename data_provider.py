@@ -6,20 +6,24 @@ import sys
 import random
 import io
 import scipy.io as sio
+import logging
+import time
 
 class SynthTFRecordWriter(object):
     def __init__(self, data_dir, gt_path, split=False):
         if not os.path.exists(gt_path):
-            print('Could not locate Ground Truth dictionary at %s'%(gt_path))
+            logging.error('Could not locate Ground Truth dictionary at %s'%(gt_path))
             return
 
         if not os.path.exists(data_dir):
-            print('Data Directory [%s] does not exist.'%(data_dir))
+            logging.error('Data Directory [%s] does not exist.'%(data_dir))
 
+        logging.info('Reading %s' % (gt_path))
         self.labels = sio.loadmat(gt_path)
         self.split = split
         all_files = list(self.labels.keys())[3:]
         N = len(all_files)
+        logging.info('Total files to process %d' % N)
 
         self.train_files = all_files
 
@@ -32,10 +36,17 @@ class SynthTFRecordWriter(object):
     def _write_fn(self, out_file, image_list, mode):
         writer = tf.python_io.TFRecordWriter(out_file)
         N = len(image_list)
+        logging.info('Writing %d images to %s'%(N, out_file))
+        tic = time.time()
         for i in range(N):
             if (i % 1000) == 0:
-                print('%s Data: %d/%d records saved' % (mode, i,N))
-                sys.stdout.flush()
+                toc = time.time()
+                if i == 1000:
+                    estimated_time = N*(toc-tic)/1000 // 60
+                    logging.info('Estimated time to complete %d mins' % (estimated_time))
+                logging.info('%s Data: %d/%d records saved in %d secs' % (mode, i, N, toc-tic))
+                tic = time.time()
+                #sys.stdout.flush()
 
             try:
                 # Resize image to 32 x 100 and get encoded byte string
@@ -54,7 +65,7 @@ class SynthTFRecordWriter(object):
 
                 writer.write(example.SerializeToString())
             except Exception as e:
-                print ('Encountered an exception while processing [%s]. Details: %s'%(image_list[i], str(e)))
+                logging.error('Encountered an exception while processing [%s]. Details: %s'%(image_list[i], str(e)))
         writer.close()
 
     def _write_feature(self, train_file, val_file=None, test_file=None):

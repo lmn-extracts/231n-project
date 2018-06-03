@@ -26,6 +26,7 @@ def test_mjsynth_tfrecord(data_dir, target_dir, trainFile, valFile, testFile):
     tfWriter._write_feature(trainFile, valFile, testFile)
 
 def main():
+    logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(asctime)s:%(message)s')
     parser = argparse.ArgumentParser()
     parser.add_argument('--dir', '-d')
     parser.add_argument('--target', '-t')
@@ -35,6 +36,9 @@ def main():
     data_dir = 'SampleSet' if args.dir is None else args.dir
     target_dir = data_dir if args.target is None else args.target
     gt_path = 'D:\\231n-project\\sampleSynthResults\\gt.mat' if args.gt is None else args.gt
+
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
 
     trainFile = os.path.join(target_dir, 'train.tfrecords')
     valFile = os.path.join(target_dir, 'val.tfrecords')
