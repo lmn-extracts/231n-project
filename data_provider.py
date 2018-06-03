@@ -37,21 +37,24 @@ class SynthTFRecordWriter(object):
                 print('%s Data: %d/%d records saved' % (mode, i,N))
                 sys.stdout.flush()
 
-            # Resize image to 32 x 100 and get encoded byte string
-            encoded_image = resized_byte_string(image_list[i])
-            # Convert label to integer representation
-            label = (self.labels[image_list[i]][0]).strip()
-            encoded_label = [chr2idx(c) for c in label]
+            try:
+                # Resize image to 32 x 100 and get encoded byte string
+                encoded_image = resized_byte_string(image_list[i])
+                # Convert label to integer representation
+                label = (self.labels[image_list[i]][0]).strip()
+                encoded_label = [chr2idx(c) for c in label]
 
-            # write the label (string) and image filename (string)
-            feature = {
-                'label': _int64_feature(encoded_label),
-                'image': _bytes_feature(encoded_image)
-            }
+                # write the label (string) and image filename (string)
+                feature = {
+                    'label': _int64_feature(encoded_label),
+                    'image': _bytes_feature(encoded_image)
+                }
 
-            example = tf.train.Example(features=tf.train.Features(feature=feature))
+                example = tf.train.Example(features=tf.train.Features(feature=feature))
 
-            writer.write(example.SerializeToString())
+                writer.write(example.SerializeToString())
+            except Exception as e:
+                print ('Encountered an exception while processing [%s]. Details: %s'%(image_list[i], str(e)))
         writer.close()
 
     def _write_feature(self, train_file, val_file=None, test_file=None):
