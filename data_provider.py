@@ -4,13 +4,14 @@ import tensorflow as tf
 import os
 import sys
 import random
-import io
 import scipy.io as sio
 import logging
 import time
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from random import shuffle
 
 class SynthTFRecordWriter(object):
-    def __init__(self, data_dir, gt_path, split=False):
+    def __init__(self, data_dir, gt_path, split=False, n_workers=1, batch_size=10000):
         if not os.path.exists(gt_path):
             logging.error('Could not locate Ground Truth dictionary at %s'%(gt_path))
             return
@@ -19,11 +20,19 @@ class SynthTFRecordWriter(object):
             logging.error('Data Directory [%s] does not exist.'%(data_dir))
 
         logging.info('Reading %s' % (gt_path))
-        self.labels = sio.loadmat(gt_path)
+        annotations = sio.loadmat(gt_path)
         self.split = split
-        all_files = list(self.labels.keys())[3:]
+        self.n_workers = n_workers
+        self.batch_size = batch_size
+        all_files = list(annotations.keys())[3:]
+        labelList = list(annotations.values())[3:]
         N = len(all_files)
         logging.info('Total files to process %d' % N)
+
+        zipped = list(zip(all_files, labelList))
+        random.seed(238)
+        shuffle(zipped)
+        all_files, self.labels = zip(*zipped)
 
         self.train_files = all_files
 
@@ -38,34 +47,36 @@ class SynthTFRecordWriter(object):
         N = len(image_list)
         logging.info('Writing %d images to %s'%(N, out_file))
         tic = time.time()
-        for i in range(N):
-            if (i % 1000) == 0:
-                toc = time.time()
-                if i == 1000:
-                    estimated_time = N*(toc-tic)/1000 // 60
-                    logging.info('Estimated time to complete %d mins' % (estimated_time))
-                logging.info('%s Data: %d/%d records saved in %d secs' % (mode, i, N, toc-tic))
-                tic = time.time()
-                #sys.stdout.flush()
-
+        nworkers = self.n_workers
+        batch_size = self.batch_size
+        report_interval = batch_size // nworkers * nworkers
+        count = 0
+        writing = False
+        for i in range(0, N, batch_size):
             try:
-                # Resize image to 32 x 100 and get encoded byte string
-                encoded_image = resized_byte_string(image_list[i])
-                # Convert label to integer representation
-                label = (self.labels[image_list[i]][0]).strip()
-                encoded_label = [chr2idx(c) for c in label]
-
-                # write the label (string) and image filename (string)
-                feature = {
-                    'label': _int64_feature(encoded_label),
-                    'image': _bytes_feature(encoded_image)
-                }
-
-                example = tf.train.Example(features=tf.train.Features(feature=feature))
-
-                writer.write(example.SerializeToString())
+                with ProcessPoolExecutor(max_workers=nworkers) as executor:
+                    end = i + batch_size if(i+batch_size < N) else N
+                    result = executor.map(process_sgl_image, image_list[i:end], self.labels[i:end])
+                    count = 0
+                if writing:
+                    # Wait until previous writer completes
+                    background_writer.join()
+                background_writer = AsyncWrite(writer, result)
+                background_writer.start()
+                writing = True
+                    # for example in result:
+                    #     writer.write(example.SerializeToString())
+                    #     count += 1
             except Exception as e:
-                logging.error('Encountered an exception while processing [%s]. Details: %s'%(image_list[i], str(e)))
+                logging.error('Encountered an exception while processing batch starting at index [%d]. Details: %s'%(i, str(e)))
+
+            toc = time.time()
+            if i == batch_size:
+                estimated_time = N*(toc-tic)/batch_size // 60
+                logging.info('Estimated time to complete %s data: %d mins' % (mode, estimated_time))
+            #logging.info('%s Data: %d/%d . %d records saved in %d secs' % (mode, i+batch_size, N, count toc-tic))
+            logging.info('%s Data: %d/%d records saved in %d secs' % (mode, i+batch_size, N, toc-tic))
+            tic = time.time()
         writer.close()
 
     def _write_feature(self, train_file, val_file=None, test_file=None):

@@ -1,10 +1,11 @@
 import os
 import tensorflow as tf
 import numpy as np
-from random import shuffle
 import cv2
 import math
 from scipy.stats import mode
+import logging
+import threading
 
 def _int64_feature(value):
     val = value
@@ -140,6 +141,10 @@ def resized_byte_string(filename):
     c1 = mode(image[:,:,1])[0][0][0]
     c2 = mode(image[:,:,2])[0][0][0]
 
+    result[:, :, 0] = np.full([32, 100], c0)
+    result[:, :, 1] = np.full([32, 100], c1)
+    result[:, :, 2] = np.full([32, 100], c2)
+
     result = result.astype(np.uint8)
 
     # Compute Stretch Factors
@@ -157,6 +162,36 @@ def resized_byte_string(filename):
     encoded_image = cv2.imencode('.jpg', result, [int(cv2.IMWRITE_JPEG_QUALITY), 100])[1].tostring()
     return encoded_image
 
+# Consolidate image processing to leverage parallel processing
+def process_sgl_image(image, label):
+    try:
+        encoded_image = resized_byte_string(image)
+        encoded_label = [chr2idx(c) for c in label[0]]
 
+        feature = {
+            'label': _int64_feature(encoded_label),
+            'image': _bytes_feature(encoded_image)
+        }
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
 
+        return example
+
+    except Exception as e:
+        logging.error('Encountered an exception while processing [%s]. Details: %s' % (image, str(e)))
+
+class AsyncWrite(threading.Thread):
+    def __init__(self, writer, examples):
+        threading.Thread.__init__(self)
+        self.writer = writer
+        self.examples = examples
+
+    def run(self):
+        try:
+            count = 0
+            for example in self.examples:
+                self.writer.write(example.SerializeToString())
+                count += 1
+            logging.info('%d records written to tfrecord' % (count))
+        except Exception as e:
+            logging.error('Encountered an exception while writing tfrecord to file. Details: %s' % (str(e)))
 

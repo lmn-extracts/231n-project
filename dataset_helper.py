@@ -14,7 +14,8 @@ def parse(serialized):
                                        })
     
     image = tf.image.decode_jpeg(features['image'], channels=3)
-    image = tf.image.resize_images(image, [32,100], tf.image.ResizeMethod.BICUBIC)
+    # Resize already done in preprocessing
+    #image = tf.image.resize_images(image, [32,100], tf.image.ResizeMethod.BICUBIC)
     image = tf.cast(image, tf.float32)
     image = tf.reshape(image, [32, 100, 3])
     label = tf.cast(features['label'], tf.int32)
