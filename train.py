@@ -28,11 +28,15 @@ flags.DEFINE_float("lr_decay_rate", 0.001, "Defaults to 0.1")
 flags.DEFINE_float("lr", 5e-4, "Defaults to 5e-4")
 
 flags.DEFINE_string("exp_name", "default", "Experiment name. Used to save summaries.")
+flags.DEFINE_string("model_dir", None, "Path location to save Experiments.")
 
 
 def get_tboard_path():
-    curr_path = os.path.dirname(os.path.abspath(__file__))
-    exp_path = os.path.join(curr_path, 'experiments')
+    if FLAGS.model_dir is None:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    else:
+        base_path = FLAGS.model_dir
+    exp_path = os.path.join(base_path, 'experiments')
     if not os.path.exists(exp_path):
         os.makedirs(exp_path)
 
