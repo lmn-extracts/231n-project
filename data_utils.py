@@ -1,8 +1,11 @@
 import os
 import tensorflow as tf
 import numpy as np
-from random import shuffle
 import cv2
+import math
+from scipy.stats import mode
+import logging
+import threading
 
 def _int64_feature(value):
     val = value
@@ -15,6 +18,12 @@ def _byte_feature(value):
     if type(value) is not list:
         val = [value]
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=val))
+
+def _bytes_feature(value):
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+def _int64_feature_list(values):
+    return tf.train.FeatureList(feature=[_int64_feature(v) for v in values])
 
 def get_file_names(dirname):
     fileList = []
@@ -51,7 +60,8 @@ def load_image(image, input_width=100):
         Resize an image to the "good" input size
     """
 
-    #print("Processing image", image)
+    print("Processing image", image)
+    
     try:
         im_arr = cv2.imread(image)
         #print('im arr shape', im_arr.shape)
@@ -116,4 +126,88 @@ def compute_accuracy(preds, labels):
     return accuracy
 
 
+# Get resized image
+def resized_byte_string(filename):
+    image = cv2.imread(filename)
+    # Convert to RGB as Tensorflow processes RGB images
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    h,w,_ = image.shape
+
+    result = np.zeros([32,100,3])
+    
+    # Compute the background by taking the most common value across the 3 channels
+    # c0 = mode(image[:,:,0])[0][0][0]
+    # c1 = mode(image[:,:,1])[0][0][0]
+    # c2 = mode(image[:,:,2])[0][0][0]
+
+    #result[:, :, 0] = np.full([32, 100], c0)
+    #result[:, :, 1] = np.full([32, 100], c1)
+    #result[:, :, 2] = np.full([32, 100], c2)
+
+    result = result.astype(np.uint8)
+
+    # Compute Stretch Factors
+    sw = 100/w
+    sh = 32/h
+    
+    stretch = min(sw,sh)
+    sw = min(int(math.ceil(stretch * w)), 100)
+    sh = min(int(math.ceil(stretch * h)), 32)
+
+    image = cv2.resize(image, (sw,sh))
+    result[:sh,:sw,:] = image
+
+    # Encode resized image to byte string
+    encoded_image = cv2.imencode('.jpg', result, [int(cv2.IMWRITE_JPEG_QUALITY), 100])[1].tostring()
+    return encoded_image
+
+# Consolidate image processing to leverage parallel processing
+def process_sgl_image(image, label):
+    try:
+        #logging.debug('Processing image [%s]' % image)
+        encoded_image = resized_byte_string(image)
+        encoded_label = [chr2idx(c) for c in label[0]]
+
+        feature = {
+            'label': _int64_feature(encoded_label),
+            'image': _bytes_feature(encoded_image)
+        }
+        example = tf.train.Example(features=tf.train.Features(feature=feature))
+
+        return example
+
+    except Exception as e:
+        logging.error('Encountered an exception while processing [%s]. Details: %s' % (image, str(e)))
+
+class AsyncWrite(threading.Thread):
+    def __init__(self, writer, examples, name='WriteThread'):
+        threading.Thread.__init__(self, name=name)
+        self.writer = writer
+        self.examples = examples
+        self._stopevent = threading.Event()
+        self._sleepperiod = 1.0
+        self.running = False
+
+    def run(self):
+        self.running = True
+        count = 0
+        for example in self.examples:
+            try:
+                self.writer.write(example.SerializeToString())
+                count += 1
+                #logging.debug('Writing record [%d]' % count)
+            except Exception as e:
+                logging.error('Encountered an exception while writing tfrecord to file. Details: %s' % (str(e)))
+        logging.info('%d records written to tfrecord' % (count))
+        self.running = False
+        while not self._stopevent.isSet():
+            self._stopevent.wait(self._sleepperiod)
+        logging.info( "%s ends" % (self.getName()) )
+
+    def join(self, timeout=None):
+        logging.debug('Got request to join thread')
+        logging.debug('Thread running status: %s' % (self.running))
+        self._stopevent.set()
+        threading.Thread.join(self,timeout)
 
