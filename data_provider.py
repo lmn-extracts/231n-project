@@ -52,6 +52,7 @@ class SynthTFRecordWriter(object):
         report_interval = batch_size // nworkers * nworkers
         count = 0
         writing = False
+        end = 0
         for i in range(0, N, batch_size):
             try:
                 with ProcessPoolExecutor(max_workers=nworkers) as executor:
@@ -60,8 +61,10 @@ class SynthTFRecordWriter(object):
                     count = 0
                 if writing:
                     # Wait until previous writer completes
-                    background_writer.join()
-                background_writer = AsyncWrite(writer, result)
+                    while background_writer.is_alive():
+                        background_writer.join(10)
+                batch_id = 'Writer_Batch_' + str(i) + '_' + str(end)
+                background_writer = AsyncWrite(writer, result, name=batch_id)
                 background_writer.start()
                 writing = True
                     # for example in result:
@@ -75,8 +78,10 @@ class SynthTFRecordWriter(object):
                 estimated_time = N*(toc-tic)/batch_size // 60
                 logging.info('Estimated time to complete %s data: %d mins' % (mode, estimated_time))
             #logging.info('%s Data: %d/%d . %d records saved in %d secs' % (mode, i+batch_size, N, count toc-tic))
-            logging.info('%s Data: %d/%d records saved in %d secs' % (mode, i+batch_size, N, toc-tic))
+            logging.info('%s Data: %d/%d records saved in %d secs' % (mode, end, N, toc-tic))
             tic = time.time()
+        while background_writer.is_alive():
+            background_writer.join(10)
         writer.close()
 
     def _write_feature(self, train_file, val_file=None, test_file=None):

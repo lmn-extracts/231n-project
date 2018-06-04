@@ -137,13 +137,13 @@ def resized_byte_string(filename):
     result = np.zeros([32,100,3])
     
     # Compute the background by taking the most common value across the 3 channels
-    c0 = mode(image[:,:,0])[0][0][0]
-    c1 = mode(image[:,:,1])[0][0][0]
-    c2 = mode(image[:,:,2])[0][0][0]
+    # c0 = mode(image[:,:,0])[0][0][0]
+    # c1 = mode(image[:,:,1])[0][0][0]
+    # c2 = mode(image[:,:,2])[0][0][0]
 
-    result[:, :, 0] = np.full([32, 100], c0)
-    result[:, :, 1] = np.full([32, 100], c1)
-    result[:, :, 2] = np.full([32, 100], c2)
+    #result[:, :, 0] = np.full([32, 100], c0)
+    #result[:, :, 1] = np.full([32, 100], c1)
+    #result[:, :, 2] = np.full([32, 100], c2)
 
     result = result.astype(np.uint8)
 
@@ -165,6 +165,7 @@ def resized_byte_string(filename):
 # Consolidate image processing to leverage parallel processing
 def process_sgl_image(image, label):
     try:
+        #logging.debug('Processing image [%s]' % image)
         encoded_image = resized_byte_string(image)
         encoded_label = [chr2idx(c) for c in label[0]]
 
@@ -180,18 +181,33 @@ def process_sgl_image(image, label):
         logging.error('Encountered an exception while processing [%s]. Details: %s' % (image, str(e)))
 
 class AsyncWrite(threading.Thread):
-    def __init__(self, writer, examples):
-        threading.Thread.__init__(self)
+    def __init__(self, writer, examples, name='WriteThread'):
+        threading.Thread.__init__(self, name=name)
         self.writer = writer
         self.examples = examples
+        self._stopevent = threading.Event()
+        self._sleepperiod = 1.0
+        self.running = False
 
     def run(self):
-        try:
-            count = 0
-            for example in self.examples:
+        self.running = True
+        count = 0
+        for example in self.examples:
+            try:
                 self.writer.write(example.SerializeToString())
                 count += 1
-            logging.info('%d records written to tfrecord' % (count))
-        except Exception as e:
-            logging.error('Encountered an exception while writing tfrecord to file. Details: %s' % (str(e)))
+                #logging.debug('Writing record [%d]' % count)
+            except Exception as e:
+                logging.error('Encountered an exception while writing tfrecord to file. Details: %s' % (str(e)))
+        logging.info('%d records written to tfrecord' % (count))
+        self.running = False
+        while not self._stopevent.isSet():
+            self._stopevent.wait(self._sleepperiod)
+        logging.info( "%s ends" % (self.getName()) )
+
+    def join(self, timeout=None):
+        logging.debug('Got request to join thread')
+        logging.debug('Thread running status: %s' % (self.running))
+        self._stopevent.set()
+        threading.Thread.join(self,timeout)
 
