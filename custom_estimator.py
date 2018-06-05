@@ -27,7 +27,9 @@ def crnn_model(features, labels, mode, params):
             'predicted_label': preds,
             'logits': logits,
         }
-        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
+        export_outputs = {'predict': tf.estimator.export.PredictOutput(predictions)}
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions,
+                                          export_outputs=export_outputs)
 
 
     loss = tf.reduce_mean(tf.nn.ctc_loss(labels=labels, inputs=rnn_output,
