@@ -30,7 +30,7 @@ flags.DEFINE_float("lr", 5e-4, "Defaults to 5e-4")
 
 flags.DEFINE_string("exp_name", "default", "Experiment name. Used to save summaries.")
 flags.DEFINE_string("model_dir", None, "Path location to save Experiments.")
-
+flags.DEFINE_string("tf_format", "JPG", "Specify whether TfRecords has image in JPG or raw format")
 
 def get_tboard_path():
     if FLAGS.model_dir is None:
@@ -83,7 +83,8 @@ def main(unused_args):
         model_dir = model_dir)
 
     train_spec = tf.estimator.TrainSpec(
-        input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size, parallel_calls=FLAGS.parallel_cpu),
+        input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size, parallel_calls=FLAGS.parallel_cpu,
+                                 tf_format=FLAGS.tf_format),
         max_steps=FLAGS.train_steps)
 
     serving_feature_spec = tf.feature_column.make_parse_example_spec(my_feature_columns)
@@ -97,8 +98,10 @@ def main(unused_args):
         exports_to_keep=5)
 
     eval_spec = tf.estimator.EvalSpec(
-        #input_fn=lambda:input_fn(valFile, train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
-        input_fn=lambda: input_fn(valFile, train=True, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
+        #input_fn=lambda:input_fn(valFile, train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu,
+                                 tf_format=FLAGS.tf_format),
+        input_fn=lambda: input_fn(valFile, train=True, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu,
+                                 tf_format=FLAGS.tf_format),
         steps=FLAGS.eval_steps,
         exporters=exporter,
         name='text-eval',
@@ -109,12 +112,12 @@ def main(unused_args):
 
     # for i in range(3):
     #     classifier.train(
-    #         input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size, parallel_calls=FLAGS.parallel_cpu),
+    #         input_fn=lambda:input_fn(trainFile, train=True, batch_size=FLAGS.batch_size, parallel_calls=FLAGS.parallel_cpu, tf_format=FLAGS.tf_format),
     #         steps=FLAGS.train_steps
     #     )
     #
     #     eval_result = classifier.evaluate(input_fn=lambda:input_fn(valFile,
-    #                     train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu),
+    #                     train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu, tf_format=FLAGS.tf_format),
     #                                       steps=FLAGS.eval_steps, )
 
     #print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result['accuracy']))

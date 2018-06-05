@@ -3,13 +3,26 @@ import matplotlib.pyplot as plt
 import os
 from data_utils import *
 from dataset_helper import *
+import argparse
 
-data_dir = '/Users/afassa/Documents/Ane-lg-nonpersonal/learning/cs231n/assignments/project-git/data/SynthTf2'
-data_path = os.path.join(data_dir,'train.tfrecords')  # address to save the hdf5 file
+data_path = '/Users/afassa/Documents/Ane-lg-nonpersonal/learning/cs231n/assignments/project-git/data/SynthTf2'
+data_file = os.path.join(data_path,'val.tfrecords')  # address to save the hdf5 file
+
+tf_format = 'JPG'
+#tf_format = 'RAW'
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--file', '-f')
+parser.add_argument('--tf_format', '-tf')
+args = parser.parse_args()
+
+full_file_path = data_file if args.file is None else args.file
+tf_format = tf_format if args.tf_format is None else args.tf_format
 
 batch_size = 5
 with tf.Graph().as_default():
-    image_batch, label_batch = input_fn(data_path, train=True, batch_size=batch_size, buffer_size=2048)
+    image_batch, label_batch = input_fn(full_file_path, train=True, batch_size=batch_size, buffer_size=2048,
+                                        tf_format=tf_format)
 
     with tf.Session() as sess:
         init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
@@ -24,7 +37,6 @@ with tf.Graph().as_default():
                 print("DENSE LABEL i", dense_label[i])
                 label = [idx2char(c) for c in dense_label[i]]
                 print("***Label", label)
-                #image = image['image'][0]
                 image_i = image_i.astype(np.uint8)
                 print("image shape", image_i.shape)
                 plt.imshow(image_i)
