@@ -24,6 +24,7 @@ class SynthTFRecordWriter(object):
         self.split = split
         self.n_workers = n_workers
         self.batch_size = batch_size
+        self.data_dir = data_dir
         all_files = list(annotations.keys())[3:]
         labelList = list(annotations.values())[3:]
         N = len(all_files)
@@ -57,7 +58,7 @@ class SynthTFRecordWriter(object):
             try:
                 with ProcessPoolExecutor(max_workers=nworkers) as executor:
                     end = i + batch_size if(i+batch_size < N) else N
-                    result = executor.map(process_sgl_image, image_list[i:end], self.labels[i:end])
+                    result = executor.map(process_sgl_image, image_list[i:end], self.labels[i:end], [self.data_dir] * (end-i+1))
                     count = 0
                 if writing:
                     # Wait until previous writer completes
