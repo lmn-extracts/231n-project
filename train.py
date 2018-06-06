@@ -31,6 +31,7 @@ flags.DEFINE_float("lr", 5e-4, "Defaults to 5e-4")
 flags.DEFINE_string("exp_name", "default", "Experiment name. Used to save summaries.")
 flags.DEFINE_string("model_dir", None, "Path location to save Experiments.")
 flags.DEFINE_string("tf_format", "JPG", "Specify whether TfRecords has image in JPG or raw format")
+flags.DEFINE_string("run_type", "train_and_eval", "Run type: train_and_eval, eval_only")
 
 def get_tboard_path():
     if FLAGS.model_dir is None:
@@ -99,7 +100,7 @@ def main(unused_args):
 
     eval_spec = tf.estimator.EvalSpec(
         #input_fn=lambda:input_fn(valFile, train=False, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu,
-                                 tf_format=FLAGS.tf_format),
+        #                         tf_format=FLAGS.tf_format),
         input_fn=lambda: input_fn(valFile, train=True, batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu,
                                  tf_format=FLAGS.tf_format),
         steps=FLAGS.eval_steps,
@@ -107,7 +108,15 @@ def main(unused_args):
         name='text-eval',
         throttle_secs=FLAGS.eval_throttle_secs)
 
-    tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
+    if FLAGS.run_type == 'train_and_eval':
+        tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
+    elif FLAGS.run_type == 'eval_only':
+        eval_result = classifier.evaluate(input_fn=lambda: input_fn(valFile, train=False,
+                                            batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu,
+                                            tf_format=FLAGS.tf_format),
+                                            steps=FLAGS.eval_steps, )
+
+    #print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result['accuracy']))
 
 
     # for i in range(3):

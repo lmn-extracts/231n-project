@@ -5,7 +5,7 @@ from data_utils import *
 from dataset_helper import *
 import argparse
 
-data_path = '/Users/afassa/Documents/Ane-lg-nonpersonal/learning/cs231n/assignments/project-git/data/SynthTf2'
+data_path = '/Users/afassa/Documents/Ane-lg-nonpersonal/learning/cs231n/assignments/project-git/data/SynthTf10kTestNewProvider'
 data_file = os.path.join(data_path,'val.tfrecords')  # address to save the hdf5 file
 
 tf_format = 'JPG'

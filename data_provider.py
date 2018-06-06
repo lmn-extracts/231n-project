@@ -4,28 +4,32 @@ import tensorflow as tf
 import os
 import sys
 import random
-import scipy.io as sio
 import logging
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from random import shuffle
+from datasets.dataset_reader import *
 
 class SynthTFRecordWriter(object):
     def __init__(self, data_dir, gt_path, split=False, n_workers=1, batch_size=10000):
-        if not os.path.exists(gt_path):
-            logging.error('Could not locate Ground Truth dictionary at %s'%(gt_path))
-            return
+        # if not os.path.exists(gt_path):
+        #     logging.error('Could not locate Ground Truth dictionary at %s'%(gt_path))
+        #     return
+        #
+        # if not os.path.exists(data_dir):
+        #     logging.error('Data Directory [%s] does not exist.'%(data_dir))
+        #
+        # logging.info('Reading %s' % (gt_path))
+        # annotations = sio.loadmat(gt_path)
+        # all_files = list(annotations.keys())[3:]
+        # labelList = list(annotations.values())[3:]
 
-        if not os.path.exists(data_dir):
-            logging.error('Data Directory [%s] does not exist.'%(data_dir))
-
-        logging.info('Reading %s' % (gt_path))
-        annotations = sio.loadmat(gt_path)
         self.split = split
         self.n_workers = n_workers
         self.batch_size = batch_size
-        all_files = list(annotations.keys())[3:]
-        labelList = list(annotations.values())[3:]
+
+        all_files, labelList = synth_reader(data_dir, gt_path)
+
         N = len(all_files)
         logging.info('Total files to process %d' % N)
 
