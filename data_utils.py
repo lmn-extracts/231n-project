@@ -163,10 +163,10 @@ def resized_byte_string(filename):
     return encoded_image
 
 # Consolidate image processing to leverage parallel processing
-def process_sgl_image(image, label, data_dir):
+def process_sgl_image(image, label):
     try:
         #logging.debug('Processing image [%s]' % image)
-        encoded_image = resized_byte_string(os.path.join(data_dir, image))
+        encoded_image = resized_byte_string(image)
         encoded_label = [chr2idx(c) for c in label[0]]
 
         feature = {

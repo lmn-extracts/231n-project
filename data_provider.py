@@ -4,46 +4,54 @@ import tensorflow as tf
 import os
 import sys
 import random
-import scipy.io as sio
 import logging
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from random import shuffle
+from datasets.dataset_reader import *
 
 class SynthTFRecordWriter(object):
     def __init__(self, data_dir, gt_path, split=False, n_workers=1, batch_size=10000):
-        if not os.path.exists(gt_path):
-            logging.error('Could not locate Ground Truth dictionary at %s'%(gt_path))
-            return
+        # if not os.path.exists(gt_path):
+        #     logging.error('Could not locate Ground Truth dictionary at %s'%(gt_path))
+        #     return
+        #
+        # if not os.path.exists(data_dir):
+        #     logging.error('Data Directory [%s] does not exist.'%(data_dir))
+        #
+        # logging.info('Reading %s' % (gt_path))
+        # annotations = sio.loadmat(gt_path)
+        # all_files = list(annotations.keys())[3:]
+        # labelList = list(annotations.values())[3:]
 
-        if not os.path.exists(data_dir):
-            logging.error('Data Directory [%s] does not exist.'%(data_dir))
-
-        logging.info('Reading %s' % (gt_path))
-        annotations = sio.loadmat(gt_path)
         self.split = split
         self.n_workers = n_workers
         self.batch_size = batch_size
-        self.data_dir = data_dir
-        all_files = list(annotations.keys())[3:]
-        labelList = list(annotations.values())[3:]
+
+        all_files, labelList = synth_reader(data_dir, gt_path)
+
         N = len(all_files)
         logging.info('Total files to process %d' % N)
 
         zipped = list(zip(all_files, labelList))
         random.seed(238)
         shuffle(zipped)
-        all_files, self.labels = zip(*zipped)
+        all_files, labels = zip(*zipped)
 
         self.train_files = all_files
+        self.labels = labels
 
         if split:
             self.train_files = all_files[0: int(0.6 * N)]
             self.val_files = all_files[int(0.6*N):int(0.8*N)]
             self.test_files = all_files[int(0.8*N):]
 
+            self.train_labels = labels[0: int(0.6 * N)]
+            self.val_labels = labels[int(0.6*N):int(0.8*N)]
+            self.test_labels = labels[int(0.8*N):]
 
-    def _write_fn(self, out_file, image_list, mode):
+
+    def _write_fn(self, out_file, image_list, labels, mode):
         writer = tf.python_io.TFRecordWriter(out_file)
         N = len(image_list)
         logging.info('Writing %d images to %s'%(N, out_file))
@@ -58,7 +66,7 @@ class SynthTFRecordWriter(object):
             try:
                 with ProcessPoolExecutor(max_workers=nworkers) as executor:
                     end = i + batch_size if(i+batch_size < N) else N
-                    result = executor.map(process_sgl_image, image_list[i:end], self.labels[i:end], [self.data_dir] * (end-i+1))
+                    result = executor.map(process_sgl_image, image_list[i:end], labels[i:end])
                     count = 0
                 if writing:
                     # Wait until previous writer completes
@@ -68,9 +76,6 @@ class SynthTFRecordWriter(object):
                 background_writer = AsyncWrite(writer, result, name=batch_id)
                 background_writer.start()
                 writing = True
-                    # for example in result:
-                    #     writer.write(example.SerializeToString())
-                    #     count += 1
             except Exception as e:
                 logging.error('Encountered an exception while processing batch starting at index [%d]. Details: %s'%(i, str(e)))
 
@@ -86,14 +91,14 @@ class SynthTFRecordWriter(object):
         writer.close()
 
     def _write_feature(self, train_file, val_file=None, test_file=None):
-        self._write_fn(train_file, self.train_files, mode="Train")
+        self._write_fn(train_file, self.train_files, self.train_labels, mode="Train")
 
         if not self.split:
             return
 
-        self._write_fn(val_file, self.val_files, mode="Val")
+        self._write_fn(val_file, self.val_files, self.val_labels, mode="Val")
 
-        self._write_fn(test_file, self.test_files, mode="Test")
+        self._write_fn(test_file, self.test_files, self.test_labels, mode="Test")
 
 
 

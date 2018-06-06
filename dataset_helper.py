@@ -1,18 +1,39 @@
 import tensorflow as tf
 from data_utils import *
 
+def parse_raw(serialized):
+    # Define a dict with the data-names and types we expect to
+    # find in the TFRecords file.
+    # It is a bit awkward that this needs to be specified again,
+    # because it could have been written in the header of the
+    # TFRecords file instead.
+
+    #MJSynth code
+    features = tf.parse_single_example(serialized,
+                                       features={
+                                           'label': tf.VarLenFeature(tf.int64),
+                                           'image': tf.FixedLenFeature([], tf.string)
+                                       })
+
+    image = tf.decode_raw(features['image'], tf.float32)
+    image = tf.reshape(image, [32, 100, 3])
+    label = tf.cast(features['label'], tf.int32)
+    return image, label
+
 def parse(serialized):
     # Define a dict with the data-names and types we expect to
     # find in the TFRecords file.
     # It is a bit awkward that this needs to be specified again,
     # because it could have been written in the header of the
     # TFRecords file instead.
+
+    #Synth code
     features = tf.parse_single_example(serialized,
                                        features={
                                            'label': tf.VarLenFeature(tf.int64),
-                                           'image': tf.FixedLenFeature((), tf.string)
+                                           'image': tf.FixedLenFeature([], tf.string)
                                        })
-    
+
     image = tf.image.decode_jpeg(features['image'], channels=3)
     # Resize already done in preprocessing
     #image = tf.image.resize_images(image, [32,100], tf.image.ResizeMethod.BICUBIC)
@@ -22,7 +43,7 @@ def parse(serialized):
     return image, label
 
 
-def input_fn(filenames, train=True, batch_size=32, buffer_size=49152, parallel_calls=1):
+def input_fn(filenames, train=True, batch_size=32, buffer_size=49152, parallel_calls=1, tf_format='JPG'):
     # Args:
     # filenames:   Filenames for the TFRecords files.
     # train:       Boolean whether training (True) or testing (False).
@@ -36,7 +57,10 @@ def input_fn(filenames, train=True, batch_size=32, buffer_size=49152, parallel_c
 
     # Parse the serialized data in the TFRecords files.
     # This returns TensorFlow tensors for the image and labels.
-    dataset = dataset.map(parse, num_parallel_calls=parallel_calls)
+    if tf_format == 'JPG':
+        dataset = dataset.map(parse, num_parallel_calls=parallel_calls)
+    else:
+        dataset = dataset.map(parse_raw, num_parallel_calls=parallel_calls)
 
     if train:
         # If training then read a buffer of the given size and

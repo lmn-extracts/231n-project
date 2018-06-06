@@ -20,12 +20,16 @@ def crnn_model(features, labels, mode, params):
     with tf.variable_scope('crnn', reuse=False):
         rnn_output, predicted_label, logits = CRNN(inputs, hidden_size=params['hidden_size'], batch_size=batch_size)
 
+    preds = predicted_label[0]
+    preds = tf.sparse_to_dense(preds.indices, preds.dense_shape, preds.values, default_value=-1)
     if mode == tf.estimator.ModeKeys.PREDICT:
         predictions = {
-            'predicted_label': predicted_label,
+            'predicted_label': preds,
             'logits': logits,
         }
-        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
+        export_outputs = {'predict': tf.estimator.export.PredictOutput(predictions)}
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions,
+                                          export_outputs=export_outputs)
 
 
     loss = tf.reduce_mean(tf.nn.ctc_loss(labels=labels, inputs=rnn_output,
