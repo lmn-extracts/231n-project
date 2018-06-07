@@ -4,7 +4,7 @@ Contains all modules necessary to implement the Recognizer Model
 
 import tensorflow as tf
 from tensorflow.python.ops import rnn_cell
-import tf.contrib.rnn.DropoutWrapper as rnn_dropout
+from tensorflow.contrib.rnn import DropoutWrapper as rnn_dropout
 from data_utils import mprint
 import numpy as np
 
