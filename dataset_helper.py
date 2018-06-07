@@ -1,6 +1,11 @@
 import tensorflow as tf
 from data_utils import *
 
+
+def get_image_shape():
+    img_shape = [32, 100, 1]
+    return img_shape
+
 def parse_raw(serialized):
     # Define a dict with the data-names and types we expect to
     # find in the TFRecords file.
@@ -20,6 +25,16 @@ def parse_raw(serialized):
     label = tf.cast(features['label'], tf.int32)
     return image, label
 
+def post_process_image(image):
+    img_shape = get_image_shape()
+    #image = tf.image.decode_jpeg(features['image'], channels=3)
+    image = tf.image.decode_jpeg(image, channels=img_shape[2])
+    # Resize already done in preprocessing
+    #image = tf.image.resize_images(image, [32,100], tf.image.ResizeMethod.BICUBIC)
+    image = tf.cast(image, tf.float32)
+    image = tf.reshape(image, img_shape)
+    return image
+
 def parse(serialized):
     # Define a dict with the data-names and types we expect to
     # find in the TFRecords file.
@@ -34,14 +49,24 @@ def parse(serialized):
                                            'image': tf.FixedLenFeature([], tf.string)
                                        })
 
-    image = tf.image.decode_jpeg(features['image'], channels=3)
-    # Resize already done in preprocessing
-    #image = tf.image.resize_images(image, [32,100], tf.image.ResizeMethod.BICUBIC)
-    image = tf.cast(image, tf.float32)
-    image = tf.reshape(image, [32, 100, 3])
+    # image = tf.image.decode_jpeg(features['image'], channels=3)
+    # # Resize already done in preprocessing
+    # #image = tf.image.resize_images(image, [32,100], tf.image.ResizeMethod.BICUBIC)
+    # image = tf.cast(image, tf.float32)
+    # image = tf.reshape(image, [32, 100, 3])
+    image = post_process_image(features['image'])
     label = tf.cast(features['label'], tf.int32)
     return image, label
 
+def parse_serve(serialized):
+    # Define parsing function to be used at serving time
+    features = tf.parse_single_example(serialized,
+                                       features={
+                                           'image': tf.FixedLenFeature([], tf.string)
+                                       })
+    image = post_process_image(features['image'])
+
+    return image
 
 def input_fn(filenames, train=True, batch_size=32, buffer_size=49152, parallel_calls=1, tf_format='JPG'):
     # Args:
@@ -96,7 +121,26 @@ def input_fn(filenames, train=True, batch_size=32, buffer_size=49152, parallel_c
 
     return x, y
 
+def get_feature_columns():
+    img_shape = get_image_shape()
+    feature_image = tf.feature_column.numeric_column("image",
+                                                 shape=img_shape)
+    my_feature_columns = [feature_image]
+    return my_feature_columns
+
 def serving_input_fn():
-    inputs = {}
-    inputs['image'] = tf.placeholder(shape=[None], dtype=tf.float32)
-    return tf.estimator.export.ServingInputReceiver(inputs, inputs)
+    #my_feature_columns = get_feature_columns()
+
+    img_shape = get_image_shape()
+    serialized_tf_example = tf.placeholder(dtype=tf.string,
+                                                  name='input_example_tensor')
+    receiver_tensors = {'examples': serialized_tf_example}
+
+    features = tf.parse_example(serialized_tf_example,
+                                       features={
+                                           'image': tf.FixedLenFeature([], tf.string)
+                                       })
+
+    features['image'] = post_process_image(features['image'])
+
+    return tf.estimator.export.ServingInputReceiver(features, receiver_tensors)

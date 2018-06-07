@@ -66,14 +66,14 @@ def main(unused_args):
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    feature_image = tf.feature_column.numeric_column("image",
-                                                 shape=[32, 100, 3])
-    my_feature_columns = [feature_image]
+    #feature_image = tf.feature_column.numeric_column("image",
+    #                                             shape=[32, 100, 3])
+    #my_feature_columns = [feature_image]
 
     classifier = tf.estimator.Estimator(
         model_fn=crnn_model,
         params={
-            'feature_columns': my_feature_columns,
+            #'feature_columns': my_feature_columns,
             'hidden_size': 256,
             'batch_size': FLAGS.batch_size,
             'lr': FLAGS.lr,
@@ -88,6 +88,7 @@ def main(unused_args):
                                  tf_format=FLAGS.tf_format),
         max_steps=FLAGS.train_steps)
 
+    my_feature_columns = get_feature_columns()
     serving_feature_spec = tf.feature_column.make_parse_example_spec(my_feature_columns)
     serving_input_receiver_fn = (
         tf.estimator.export.build_parsing_serving_input_receiver_fn(
@@ -96,6 +97,7 @@ def main(unused_args):
         name="best_exporter",
         event_file_pattern='eval_text-eval/*.tfevents.*', # must match name in eval_spec
         serving_input_receiver_fn=serving_input_receiver_fn,
+        #serving_input_receiver_fn=serving_input_fn,
         exports_to_keep=5)
 
     eval_spec = tf.estimator.EvalSpec(
