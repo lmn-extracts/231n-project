@@ -4,34 +4,22 @@ import os
 import logging
 import scipy.io as sio
 
-def check_files(data_dir, annofile):
-    if not os.path.exists(annofile):
-        logging.error('Could not locate Annotations file at %s' % (annofile))
-        return False
-
-    if not os.path.exists(data_dir):
-        logging.error('Data Directory [%s] does not exist.' % (data_dir))
-        return False
-
-    return True
-
-
 def filter_alpha(file_list, label_list):
     list_filter = np.vectorize(lambda x: bool(x.isalpha()))
     filtered_labels = list_filter(label_list)
 
+    print("First 10 orig label", label_list[:10])
     new_labels = list(np.array(label_list)[filtered_labels])
+    print('First 10 new labels', new_labels[:10])
     new_files = list(np.array(file_list)[filtered_labels])
-    logging_info('Found %d files' % len(file_list))
-    logging_info('Returning %d images with only alpha labels' % len(new_files))
-    logging_info('Skipped %d images with non alpha labels' %  len(file_list) - len(new_files))
+    print('First 10 new files', new_files[:10])
+    logging.info('Found %d files' % len(file_list))
+    logging.info('Returning %d images with only alpha labels' % len(new_files))
+    logging.info('Skipped %d images with non alpha labels' %  (len(file_list) - len(new_files)))
     return new_files, new_labels
 
 
 def mjsynth_reader(data_dir, annofile):
-
-    if not check_files(data_dir, annofile):
-        return
 
     fileList = []
     labelList = []
@@ -50,8 +38,6 @@ def mjsynth_reader(data_dir, annofile):
 
 
 def synth_reader(data_dir, annofile):
-    if not check_files(data_dir, annofile):
-        return
 
     logging.info('Reading %s' % (annofile))
     annotations = sio.loadmat(annofile)
@@ -60,10 +46,21 @@ def synth_reader(data_dir, annofile):
 
     return fileList, labelList
 
+def IIIT5K_reader(data_dir, annofile):
+
+    logging.info('Reading %s' % (annofile))
+    annotations = sio.loadmat(annofile)
+    matkey = list(annotations.keys())[3]
+    getLabelList = np.vectorize(lambda x: x[0])
+    getFileList= np.vectorize(lambda x: os.path.join(data_dir, x[0]))
+
+    labelList = getLabelList(annotations[matkey]['GroundTruth'][0])
+    fileList = getFileList(annotations[matkey]['ImgName'][0])
+    del annotations
+
+    return filter_alpha(fileList, labelList)
 
 def ICDAR03_reader(data_dir, annofile):
-    if not check_files(data_dir, annofile):
-        return
 
     logging.info('Reading %s' % (annofile))
     filepath = os.path.join(data_dir,annofile)
@@ -74,10 +71,25 @@ def ICDAR03_reader(data_dir, annofile):
     root = tree.getroot()
     images = tree.findall('./image')
     for image in images:
+        #print('tag', image.attrib['tag'])
+        #print('file',image.attrib['file'] )
         #label_dict[image.attrib['file']] = image.attrib['tag']
         labelList.append(image.attrib['tag'])
-        fileList.append(image.attrib['file'])
+        fileList.append(os.path.join(data_dir,image.attrib['file']))
 
-    return filter_alpha(labelList, fileList)
+    return filter_alpha(fileList, labelList)
 
+def ICDAR13_reader(data_dir, annofile):
 
+    labelList = []
+    fileList = []
+
+    logging.info('Reading %s' % (annofile))
+    with open(annofile) as file:
+        for line in file:
+            words = line.strip().split(',')
+            labelList.append(words[1].replace('\"', '').strip())
+            fileList.append(os.path.join(data_dir, words[0]))
+    file.close()
+
+    return filter_alpha(fileList, labelList)

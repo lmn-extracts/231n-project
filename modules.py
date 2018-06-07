@@ -4,6 +4,7 @@ Contains all modules necessary to implement the Recognizer Model
 
 import tensorflow as tf
 from tensorflow.python.ops import rnn_cell
+import tf.contrib.rnn.DropoutWrapper as rnn_dropout
 from data_utils import mprint
 import numpy as np
 
@@ -40,8 +41,13 @@ def ConvolutionalNet(inputs):
     return conv6
 
 def StackedRNN(inputs, hidden_size):
-    fw_cells = [rnn_cell.LSTMCell(hidden_size), rnn_cell.LSTMCell(hidden_size)]
-    bw_cells = [rnn_cell.LSTMCell(hidden_size), rnn_cell.LSTMCell(hidden_size)]
+    keep_prob = 0.7
+    #fw_cells = [rnn_cell.LSTMCell(hidden_size), rnn_cell.LSTMCell(hidden_size)]
+    fw_cells = [rnn_dropout(rnn_cell.LSTMCell(hidden_size), input_keep_prob=keep_prob),
+                rnn_dropout(rnn_cell.LSTMCell(hidden_size), input_keep_prob=keep_prob)]
+    #bw_cells = [rnn_cell.LSTMCell(hidden_size), rnn_cell.LSTMCell(hidden_size)]
+    bw_cells = [rnn_dropout(rnn_cell.LSTMCell(hidden_size), input_keep_prob=keep_prob),
+                rnn_dropout(rnn_cell.LSTMCell(hidden_size), input_keep_prob=keep_prob)]
     stacked_out, _, _ = tf.contrib.rnn.stack_bidirectional_dynamic_rnn(fw_cells, bw_cells, inputs, dtype=tf.float32)
 
     _, W, h = inputs.get_shape().as_list() # N x W x 2h; N returns ? None when using dataset batch
