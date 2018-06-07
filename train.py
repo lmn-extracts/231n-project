@@ -4,6 +4,7 @@ from custom_estimator import *
 from modules import *
 from data_utils import *
 from best_exporter import *
+import pickle
 
 # Define a few constants
 flags = tf.app.flags
@@ -32,6 +33,7 @@ flags.DEFINE_string("exp_name", "default", "Experiment name. Used to save summar
 flags.DEFINE_string("model_dir", None, "Path location to save Experiments.")
 flags.DEFINE_string("tf_format", "JPG", "Specify whether TfRecords has image in JPG or raw format")
 flags.DEFINE_string("run_type", "train_and_eval", "Run type: train_and_eval, eval_only")
+flags.DEFINE_string("ckpt_path", None, "Path to the best checkpoint")
 
 def get_tboard_path():
     if FLAGS.model_dir is None:
@@ -52,7 +54,7 @@ def main(unused_args):
 
     trainFile = os.path.join(FLAGS.datadir, FLAGS.input)
     valFile = os.path.join(FLAGS.datadir, FLAGS.valfile)
-    #testFile = os.path.join(FLAGS.datadir, FLAGS.testfile)
+    testFile = os.path.join(FLAGS.datadir, FLAGS.testfile)
     val_test_batch_size = FLAGS.val_batch_size
 
     if FLAGS.run_type == 'train_and eval' and (not os.path.exists(trainFile)):
@@ -113,10 +115,64 @@ def main(unused_args):
     if FLAGS.run_type == 'train_and_eval':
         tf.estimator.train_and_evaluate(classifier, train_spec, eval_spec)
     elif FLAGS.run_type == 'eval_only':
+        if FLAGS.ckpt_path is None:
+            print ('Checkpoint path --ckpt_path required.')
+            return
         eval_result = classifier.evaluate(input_fn=lambda: input_fn(valFile, train=False,
                                             batch_size=val_test_batch_size, parallel_calls=FLAGS.parallel_cpu,
                                             tf_format=FLAGS.tf_format),
-                                            steps=FLAGS.eval_steps, )
+                                            checkpoint_path=FLAGS.ckpt_path)
+        #print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result['accuracy']))
+
+    elif FLAGS.run_type == 'test':
+        if FLAGS.ckpt_path is None:
+            print ('Checkpoint path --ckpt_path required.')
+            return
+        preds = []
+        test_batch_size = 1
+        for result in classifier.predict(input_fn= lambda: input_fn(testFile, train=False, batch_size=test_batch_size,
+                                            parallel_calls=FLAGS.parallel_cpu,
+                                            tf_format=FLAGS.tf_format),
+                                        checkpoint_path = FLAGS.ckpt_path):
+            pred = ''.join([idx2char(c) for c in result['predicted_label']])
+            preds.append(pred)
+            #print(pred)
+            #print (len(preds))
+        with open('predictions', 'wb') as fp:
+            pickle.dump(preds, fp)
+
+
+        image_batch, label_batch = input_fn(testFile, train=False, batch_size=test_batch_size, buffer_size=2048,
+                                            parallel_calls=FLAGS.parallel_cpu, tf_format=FLAGS.tf_format)
+
+        with tf.Session() as sess:
+            init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+            sess.run(init_op)
+            count = 0
+            while True:
+                try:
+
+                    images, labels = sess.run([image_batch, label_batch])
+                    dense_label = sess.run(
+                        tf.sparse_to_dense(labels.indices, labels.dense_shape, labels.values, default_value=-1))
+                    #print("DENSE LABEL", dense_label)
+                    for i in range(test_batch_size):
+                        print(count)
+                        print('Prediction: ', preds[count])
+                        #image_i = images['image'][i]
+                        #print("DENSE LABEL i", dense_label[i])
+                        label = [idx2char(c) for c in dense_label[i]]
+                        #print("***Label", label)
+                        print('Ground truth: ', ''.join(label))
+                        #image_i = image_i.astype(np.uint8)
+                        #print("image shape", image_i.shape)
+                        count += 1
+
+                        #plt.imshow(image_i)
+                        #plt.title(label)
+                        #plt.show()
+                except tf.errors.OutOfRangeError:
+                    break
 
     #print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result['accuracy']))
 
