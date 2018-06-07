@@ -84,7 +84,8 @@ def _parse_function(filename, label, max_char_count=10):
 def idx2char(i):
     if i == -1:
         return ''
-    c = chr(i+65) if i <=25 else chr(i + (97-26))
+    # c = chr(i+65) if i <=25 else chr(i + (97-26))
+    c = chr(i+65) if i <=25 else chr((i-26) + 65) # Convert everything to uppercase
     return c
 
 def nd_array_to_labels(nd_arr):
