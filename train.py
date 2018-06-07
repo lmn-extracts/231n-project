@@ -55,7 +55,7 @@ def main(unused_args):
     #testFile = os.path.join(FLAGS.datadir, FLAGS.testfile)
     val_test_batch_size = FLAGS.val_batch_size
 
-    if (not os.path.exists(trainFile)):
+    if FLAGS.run_type == 'train_and eval' and (not os.path.exists(trainFile)):
         print("Could not find training file :", trainFile)
         exit(1)
 
