@@ -9,8 +9,10 @@ from tensorflow.python.platform import tf_logging
 from tensorflow.python.summary import summary_iterator
 from tensorflow.python.estimator.canned import metric_keys
 
-
 import os
+import glob
+from shutil import copyfile
+import tensorflow as tf
 
 def _loss_smaller(best_eval_result, current_eval_result):
   """Compares two evaluation results and returns true if the 2nd one is smaller.
@@ -170,6 +172,7 @@ class BestExporter(Exporter):
         best_eval_result=self._best_eval_result,
         current_eval_result=eval_result):
       tf_logging.info('Performing best model export.')
+      self.save_best_checkpoint()
       self._best_eval_result = eval_result
       export_result = self._saved_model_exporter.export(
           estimator, export_path, checkpoint_path, eval_result,
@@ -177,6 +180,19 @@ class BestExporter(Exporter):
       self._garbage_collect_exports(export_path)
 
     return export_result
+
+
+  def save_best_checkpoint(self):
+    recent_ckpt = tf.train.latest_checkpoint(self._model_dir)
+    tf_logging.info('Saving best model checkpoint from {}.'.format(recent_ckpt))
+
+    tf_logging.info('Saving best checkpoint from {}'.format(recent_ckpt))
+    for file in glob.glob(os.path.join(self._model_dir, 'best-*')):
+        os.remove(file)
+
+    for file in glob.glob(recent_ckpt + '*'):
+        basename = os.path.basename(file)
+        copyfile(file, os.path.join(self._model_dir, 'best-' + basename))
 
   def _garbage_collect_exports(self, export_dir_base):
     """Deletes older exports, retaining only a given number of the most recent.
