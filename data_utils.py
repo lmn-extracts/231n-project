@@ -167,7 +167,7 @@ def process_sgl_image(image, label):
     try:
         #logging.debug('Processing image [%s]' % image)
         encoded_image = resized_byte_string(image)
-        encoded_label = [chr2idx(c) for c in label[0]]
+        encoded_label = [chr2idx(c) for c in label]
 
         feature = {
             'label': _int64_feature(encoded_label),

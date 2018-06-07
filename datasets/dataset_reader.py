@@ -43,6 +43,7 @@ def synth_reader(data_dir, annofile):
     annotations = sio.loadmat(annofile)
     fileList = list(annotations.keys())[3:]
     labelList = list(annotations.values())[3:]
+    labelList = [x[0] for x in labelList]
 
     return fileList, labelList
 
