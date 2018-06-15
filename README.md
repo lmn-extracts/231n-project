@@ -1,8 +1,14 @@
 # 231n-project
 Capstone Project for CS 231N: Convolutional Neural Networks for Visual Recognition
 
-Typical command to run training
+End-To-End Trainable Model for Text Recognition
 
-python ./train.py --exp_name mjsynthMay28TrainEval --lr 0.1 --lr_decay_steps 1000  --lr_decay_rate 0.99  --datadir /apps/afassa/data/mjsynth-tfrec/ --val_batch_size 3584 --batch_size 256 --eval_steps 5 --train_steps 74000 --eval_throttle_secs 600 --parallel_cpu 32
+Anelise Fassa Golden, Lakshmi Manoharan 
+
+Stanford University
 
 
+We implement an end-to-end trainable model for character-level word recognition. The model architecture stacks convolutional layers, followed by RNN layers that output into a transcription layer that leverages CTC (Connectionist Temporal Classification) loss to train the model end-to-end. 
+
+
+The model is implemented in Python / Tensorflow.
